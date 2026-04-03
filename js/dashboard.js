@@ -8,35 +8,44 @@ import {
 } from "./firebase-config.js";
 
 // ========== DOM REFS ==========
-const logoutButton = document.getElementById("logoutButton");
-const dropZone = document.getElementById("dropZone");
-const fileInput = document.getElementById("fileInput");
-const uploadForm = document.getElementById("uploadForm");
-const videoTitle = document.getElementById("videoTitle");
-const firmSelect = document.getElementById("firmSelect");
-const orientationSelect = document.getElementById("orientationSelect");
-const expiryDate = document.getElementById("expiryDate");
-const uploadButton = document.getElementById("uploadButton");
-const progressContainer = document.getElementById("progressContainer");
-const progressBar = document.getElementById("progressBar");
-const progressText = document.getElementById("progressText");
-const selectedFileName = document.getElementById("selectedFileName");
-const videoList = document.getElementById("videoList");
-const emptyState = document.getElementById("emptyState");
+const logoutButton       = document.getElementById("logoutButton");
+const dropZone           = document.getElementById("dropZone");
+const fileInput          = document.getElementById("fileInput");
+const uploadForm         = document.getElementById("uploadForm");
+const titleContainer     = document.getElementById("titleContainer");
+const videoTitle         = document.getElementById("videoTitle");
+const firmSelect         = document.getElementById("firmSelect");
+const orientationSelect  = document.getElementById("orientationSelect");
+const expiryDate         = document.getElementById("expiryDate");
+const uploadButton       = document.getElementById("uploadButton");
+const progressContainer  = document.getElementById("progressContainer");
+const progressBar        = document.getElementById("progressBar");
+const progressText       = document.getElementById("progressText");
+const progressLabel      = document.getElementById("progressLabel");
+const selectedFileName   = document.getElementById("selectedFileName");
+const videoList          = document.getElementById("videoList");
+const emptyState         = document.getElementById("emptyState");
 const videoTableContainer = document.getElementById("videoTableContainer");
 
 // ========== STATE ==========
-let selectedFile = null;
+let selectedFiles = [];
 const firmsMap = new Map(); // firmId -> firmName
 
+// ========== XSS HELPER ==========
+function esc(str) {
+  const d = document.createElement("div");
+  d.appendChild(document.createTextNode(String(str ?? "")));
+  return d.innerHTML;
+}
+
 // ========== AUTH GUARD ==========
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "index.html";
     return;
   }
-  loadFirms();
-  loadVideos();
+  await loadFirms();
+  await loadVideos();
 });
 
 // ========== LOGOUT ==========
@@ -45,8 +54,8 @@ logoutButton.addEventListener("click", async () => {
     await signOut(auth);
     window.location.href = "index.html";
   } catch (error) {
-    console.error("Çıkış yapılırken hata oluştu:", error);
-    alert("Çıkış yapılırken bir hata oluştu: " + error.message);
+    console.error("Çıkış yapılırken hata:", error);
+    alert("Çıkış yapılırken hata: " + error.message);
   }
 });
 
@@ -55,8 +64,7 @@ async function loadFirms() {
   try {
     const firmsSnapshot = await getDocs(collection(db, "firms"));
     firmsMap.clear();
-    firmSelect.innerHTML = '<option value="">Firma Seçin</option>';
-
+    firmSelect.innerHTML = '<option value="">Firma seçin...</option>';
     firmsSnapshot.forEach((docSnap) => {
       const data = docSnap.data();
       firmsMap.set(docSnap.id, data.name);
@@ -66,15 +74,13 @@ async function loadFirms() {
       firmSelect.appendChild(option);
     });
   } catch (error) {
-    console.error("Firmalar yüklenirken hata oluştu:", error);
+    console.error("Firmalar yüklenirken hata:", error);
     alert("Firmalar yüklenemedi: " + error.message);
   }
 }
 
-// ========== FILE SELECTION (DRAG & DROP) ==========
-dropZone.addEventListener("click", () => {
-  fileInput.click();
-});
+// ========== FILE SELECTION (DRAG & DROP + MULTI) ==========
+dropZone.addEventListener("click", () => fileInput.click());
 
 dropZone.addEventListener("dragover", (e) => {
   e.preventDefault();
@@ -88,191 +94,208 @@ dropZone.addEventListener("dragleave", () => {
 dropZone.addEventListener("drop", (e) => {
   e.preventDefault();
   dropZone.classList.remove("drop-zone-active");
-  const file = e.dataTransfer.files[0];
-  handleFileSelection(file);
+  handleFileSelection(e.dataTransfer.files);
 });
 
 fileInput.addEventListener("change", () => {
-  const file = fileInput.files[0];
-  handleFileSelection(file);
+  handleFileSelection(fileInput.files);
 });
 
-function handleFileSelection(file) {
-  if (!file) {
+function handleFileSelection(files) {
+  if (!files || files.length === 0) {
     clearFileSelection();
     return;
   }
 
-  if (file.type !== "video/mp4") {
+  const validFiles = Array.from(files).filter(f => f.type === "video/mp4");
+  if (validFiles.length === 0) {
     alert("Yalnızca MP4 formatındaki videolar kabul edilmektedir.");
     clearFileSelection();
     return;
   }
+  if (validFiles.length < files.length) {
+    alert(`${files.length - validFiles.length} dosya MP4 değil ve atlandı.`);
+  }
 
-  selectedFile = file;
+  selectedFiles = validFiles;
 
-  // Auto-fill title from filename
-  const nameWithoutExt = file.name.replace(/\.[^/.]+$/, ""); // remove extension
-  const cleanName = nameWithoutExt.replace(/[-_]/g, " "); // replace dashes/underscores with spaces
-  videoTitle.value = cleanName;
+  if (selectedFiles.length === 1) {
+    // Single file: auto-fill editable title
+    const nameWithoutExt = selectedFiles[0].name.replace(/\.[^/.]+$/, "");
+    videoTitle.value = nameWithoutExt.replace(/[-_]/g, " ");
+    titleContainer.classList.remove("hidden");
+    selectedFileName.textContent = selectedFiles[0].name;
+  } else {
+    // Multiple files: title generated per file from filename
+    videoTitle.value = "";
+    titleContainer.classList.add("hidden");
+    selectedFileName.textContent = `${selectedFiles.length} video seçildi`;
+  }
 
-  selectedFileName.textContent = file.name;
   selectedFileName.classList.remove("hidden");
   uploadForm.classList.remove("hidden");
 }
 
 function clearFileSelection() {
-  selectedFile = null;
+  selectedFiles = [];
   fileInput.value = "";
   selectedFileName.textContent = "";
   selectedFileName.classList.add("hidden");
   uploadForm.classList.add("hidden");
+  titleContainer.classList.remove("hidden");
 }
 
-// ========== UPLOAD VIDEO ==========
+// ========== UPLOAD VIDEOS ==========
 uploadButton.addEventListener("click", async () => {
-  const title = videoTitle.value.trim();
-  const firmId = firmSelect.value;
+  const firmId      = firmSelect.value;
   const orientation = orientationSelect.value;
 
-  if (!selectedFile) {
-    alert("Lütfen bir video dosyası seçin.");
-    return;
-  }
-  if (!title) {
-    alert("Lütfen video başlığını girin.");
-    return;
-  }
-  if (!firmId) {
-    alert("Lütfen bir firma seçin.");
-    return;
-  }
-  if (!orientation) {
-    alert("Lütfen yönlendirme seçin.");
-    return;
-  }
+  if (selectedFiles.length === 0) { alert("Lütfen bir video dosyası seçin."); return; }
+  if (selectedFiles.length === 1 && !videoTitle.value.trim()) { alert("Lütfen video başlığını girin."); return; }
+  if (!firmId)       { alert("Lütfen bir firma seçin."); return; }
+  if (!orientation)  { alert("Lütfen yönlendirme seçin."); return; }
 
-  const fileName = Date.now() + "_" + selectedFile.name;
-  const storageRef = ref(storage, "videos/" + fileName);
-  const uploadTask = uploadBytesResumable(storageRef, selectedFile);
-
-  progressContainer.classList.remove("hidden");
   uploadButton.disabled = true;
+  progressContainer.classList.remove("hidden");
 
-  uploadTask.on(
-    "state_changed",
-    (snapshot) => {
-      const progress = Math.round(
-        (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-      );
-      progressBar.style.width = progress + "%";
-      progressText.textContent = progress + "%";
-    },
-    (error) => {
-      console.error("Yükleme hatası:", error);
-      alert("Video yüklenirken bir hata oluştu: " + error.message);
-      uploadButton.disabled = false;
-      progressContainer.classList.add("hidden");
-    },
-    async () => {
-      try {
-        const fileUrl = await getDownloadURL(uploadTask.snapshot.ref);
+  const total = selectedFiles.length;
+  for (let i = 0; i < total; i++) {
+    const file  = selectedFiles[i];
+    const title = total === 1
+      ? videoTitle.value.trim()
+      : file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
 
-        // Generate thumbnail from video
-        let thumbnailUrl = "";
-        try {
-          thumbnailUrl = await generateThumbnail(selectedFile, fileName);
-        } catch (thumbError) {
-          console.warn("Thumbnail oluşturulamadı:", thumbError);
-        }
-
-        const videoDoc = doc(collection(db, "videos"));
-        await setDoc(videoDoc, {
-          title: videoTitle.value.trim(),
-          firmId: firmSelect.value,
-          orientation: orientationSelect.value,
-          fileName,
-          fileUrl,
-          thumbnailUrl,
-          isActive: true,
-          expiresAt: expiryDate.value ? new Date(expiryDate.value) : null,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
-
-        // Reset form
-        videoTitle.value = "";
-        firmSelect.value = "";
-        orientationSelect.value = "";
-        expiryDate.value = "";
-        clearFileSelection();
-        progressContainer.classList.add("hidden");
-        progressBar.style.width = "0%";
-        progressText.textContent = "0%";
-        uploadButton.disabled = false;
-
-        await loadVideos();
-      } catch (error) {
-        console.error("Video kaydedilirken hata oluştu:", error);
-        alert("Video kaydedilemedi: " + error.message);
-        uploadButton.disabled = false;
-        progressContainer.classList.add("hidden");
-      }
+    if (total > 1) {
+      progressLabel.textContent = `Video ${i + 1} / ${total} yükleniyor...`;
+    } else {
+      progressLabel.textContent = "Yükleniyor...";
     }
-  );
+    progressBar.style.width = "0%";
+    progressText.textContent = "0%";
+
+    try {
+      await uploadSingleFile(file, title, firmId, orientation, expiryDate.value);
+    } catch (err) {
+      console.error("Yükleme hatası:", err);
+      alert(`"${file.name}" yüklenemedi: ${err.message}`);
+    }
+  }
+
+  // Reset
+  videoTitle.value = "";
+  firmSelect.value = "";
+  orientationSelect.value = "";
+  expiryDate.value = "";
+  clearFileSelection();
+  progressContainer.classList.add("hidden");
+  progressBar.style.width = "0%";
+  progressText.textContent = "0%";
+  progressLabel.textContent = "Yükleniyor...";
+  uploadButton.disabled = false;
+
+  await loadVideos();
 });
+
+function uploadSingleFile(file, title, firmId, orientation, expiry) {
+  return new Promise((resolve, reject) => {
+    const fileName   = Date.now() + "_" + file.name;
+    const storageRef = ref(storage, "videos/" + fileName);
+    const uploadTask = uploadBytesResumable(storageRef, file);
+
+    uploadTask.on(
+      "state_changed",
+      (snapshot) => {
+        const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+        progressBar.style.width = pct + "%";
+        progressText.textContent = pct + "%";
+      },
+      reject,
+      async () => {
+        try {
+          const fileUrl = await getDownloadURL(uploadTask.snapshot.ref);
+
+          let thumbnailUrl = "";
+          try {
+            thumbnailUrl = await generateThumbnail(file, fileName);
+          } catch (thumbErr) {
+            console.warn("Thumbnail oluşturulamadı:", thumbErr);
+          }
+
+          const videoDoc = doc(collection(db, "videos"));
+          await setDoc(videoDoc, {
+            title,
+            firmId,
+            orientation,
+            fileName,
+            fileUrl,
+            thumbnailUrl,
+            isActive: true,
+            expiresAt: expiry ? new Date(expiry) : null,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
+      }
+    );
+  });
+}
 
 // ========== GENERATE THUMBNAIL ==========
 async function generateThumbnail(file, fileName) {
   return new Promise((resolve, reject) => {
     const video = document.createElement("video");
-    video.preload = "metadata";
-    video.muted = true;
+    video.preload  = "auto";
+    video.muted    = true;
     video.playsInline = true;
 
     const objectUrl = URL.createObjectURL(file);
     video.src = objectUrl;
 
-    video.addEventListener("loadeddata", () => {
-      // Seek to 1 second (or 0 if video is shorter)
-      video.currentTime = Math.min(1, video.duration / 2);
-    });
+    let captured = false;
 
-    video.addEventListener("seeked", async () => {
+    const captureFrame = async () => {
+      if (captured) return;
+      captured = true;
+
       try {
-        // Capture frame to canvas
         const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        canvas.width  = video.videoWidth  || 640;
+        canvas.height = video.videoHeight || 360;
         const ctx = canvas.getContext("2d");
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // Convert to JPEG blob
         canvas.toBlob(async (blob) => {
-          try {
-            if (!blob) {
-              reject(new Error("Canvas blob oluşturulamadı"));
-              return;
-            }
+          URL.revokeObjectURL(objectUrl);
+          if (!blob) { reject(new Error("Canvas blob oluşturulamadı")); return; }
 
-            // Upload thumbnail to Storage
-            const thumbFileName = "thumb_" + fileName.replace(".mp4", ".jpg");
+          try {
+            const thumbFileName = "thumb_" + fileName.replace(/\.mp4$/i, ".jpg");
             const thumbRef = ref(storage, "thumbnails/" + thumbFileName);
             await uploadBytesResumable(thumbRef, blob);
             const thumbUrl = await getDownloadURL(thumbRef);
-
-            URL.revokeObjectURL(objectUrl);
             resolve(thumbUrl);
-          } catch (uploadError) {
-            URL.revokeObjectURL(objectUrl);
-            reject(uploadError);
+          } catch (err) {
+            reject(err);
           }
-        }, "image/jpeg", 0.7);
+        }, "image/jpeg", 0.75);
       } catch (err) {
         URL.revokeObjectURL(objectUrl);
         reject(err);
       }
+    };
+
+    video.addEventListener("loadedmetadata", () => {
+      video.currentTime = video.duration > 1 ? 1 : video.duration * 0.25;
     });
+
+    video.addEventListener("seeked", captureFrame);
+
+    // Timeout fallback if seeked never fires
+    setTimeout(() => { if (!captured) captureFrame(); }, 4000);
 
     video.addEventListener("error", () => {
       URL.revokeObjectURL(objectUrl);
@@ -284,10 +307,7 @@ async function generateThumbnail(file, fileName) {
 // ========== LOAD VIDEOS ==========
 async function loadVideos() {
   try {
-    const videosQuery = query(
-      collection(db, "videos"),
-      orderBy("createdAt", "desc")
-    );
+    const videosQuery = query(collection(db, "videos"), orderBy("createdAt", "desc"));
     const videosSnapshot = await getDocs(videosQuery);
 
     videoList.innerHTML = "";
@@ -302,76 +322,97 @@ async function loadVideos() {
     videoTableContainer.classList.remove("hidden");
 
     videosSnapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      const videoId = docSnap.id;
-      const firmName = firmsMap.get(data.firmId) || "Bilinmiyor";
-      const badgeClass = getOrientationBadgeClass(data.orientation);
+      const data     = docSnap.data();
+      const videoId  = docSnap.id;
+      const firmName = firmsMap.get(data.firmId) || "—";
+      const badgeClass     = getOrientationBadgeClass(data.orientation);
       const orientationLabel = getOrientationLabel(data.orientation);
-      const expiryDisplay = formatDate(data.expiresAt);
+      const expiryDisplay  = formatDate(data.expiresAt);
 
       const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td class="px-4 py-3">
-          ${
-            data.thumbnailUrl
-              ? `<img src="${data.thumbnailUrl}" alt="${data.title}" class="w-16 h-10 object-cover rounded">`
-              : `<div class="w-16 h-10 bg-gray-200 rounded flex items-center justify-center">
-                   <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M4 6h8a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" />
-                   </svg>
-                 </div>`
-          }
-        </td>
-        <td class="px-4 py-3 font-medium text-gray-900">${data.title}</td>
-        <td class="px-4 py-3 text-gray-600">${firmName}</td>
-        <td class="px-4 py-3">
-          <span class="${badgeClass}">${orientationLabel}</span>
-        </td>
-        <td class="px-4 py-3 text-gray-600">${expiryDisplay}</td>
-        <td class="px-4 py-3">
-          <div class="toggle-switch ${data.isActive ? "active" : ""}" data-id="${videoId}" data-active="${data.isActive}"></div>
-        </td>
-        <td class="px-4 py-3">
-          <button class="delete-btn bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1 rounded" data-id="${videoId}" data-filename="${data.fileName}">
-            Sil
-          </button>
-        </td>
-      `;
+
+      // Thumbnail cell
+      const tdThumb = document.createElement("td");
+      if (data.thumbnailUrl) {
+        const img = document.createElement("img");
+        img.src   = data.thumbnailUrl;
+        img.alt   = data.title;
+        img.className = "w-16 h-10 object-cover rounded";
+        tdThumb.appendChild(img);
+      } else {
+        tdThumb.innerHTML = `
+          <div class="w-16 h-10 bg-white/5 rounded flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M4 6h8a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" />
+            </svg>
+          </div>`;
+      }
+
+      // Title cell
+      const tdTitle = document.createElement("td");
+      tdTitle.className = "td-title";
+      tdTitle.textContent = data.title;
+
+      // Firm cell
+      const tdFirm = document.createElement("td");
+      tdFirm.className = "td-muted";
+      tdFirm.textContent = firmName;
+
+      // Orientation badge cell
+      const tdOrientation = document.createElement("td");
+      const badge = document.createElement("span");
+      badge.className = `badge ${badgeClass}`;
+      badge.textContent = orientationLabel;
+      tdOrientation.appendChild(badge);
+
+      // Expiry cell
+      const tdExpiry = document.createElement("td");
+      tdExpiry.className = "td-muted";
+      tdExpiry.textContent = expiryDisplay;
+
+      // Toggle cell
+      const tdToggle = document.createElement("td");
+      const toggle = document.createElement("div");
+      toggle.className = `toggle-switch${data.isActive ? " active" : ""}`;
+      toggle.dataset.id     = videoId;
+      toggle.dataset.active = String(data.isActive);
+      toggle.addEventListener("click", () => toggleVideo(videoId, toggle.dataset.active === "true", toggle));
+      tdToggle.appendChild(toggle);
+
+      // Delete cell
+      const tdDelete = document.createElement("td");
+      const btn = document.createElement("button");
+      btn.className   = "px-3 py-1 text-xs font-medium bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 hover:border-red-500/40 rounded-md transition";
+      btn.textContent = "Sil";
+      btn.addEventListener("click", () => deleteVideo(videoId, data.fileName));
+      tdDelete.appendChild(btn);
+
+      tr.append(tdThumb, tdTitle, tdFirm, tdOrientation, tdExpiry, tdToggle, tdDelete);
       videoList.appendChild(tr);
     });
-
-    // Attach toggle and delete event listeners
-    document.querySelectorAll(".toggle-switch").forEach((toggle) => {
-      toggle.addEventListener("click", () => {
-        const id = toggle.dataset.id;
-        const currentState = toggle.dataset.active === "true";
-        toggleVideo(id, currentState);
-      });
-    });
-
-    document.querySelectorAll(".delete-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.id;
-        const fileName = btn.dataset.filename;
-        deleteVideo(id, fileName);
-      });
-    });
   } catch (error) {
-    console.error("Videolar yüklenirken hata oluştu:", error);
+    console.error("Videolar yüklenirken hata:", error);
     alert("Videolar yüklenemedi: " + error.message);
   }
 }
 
 // ========== TOGGLE VIDEO ==========
-async function toggleVideo(videoId, currentState) {
+async function toggleVideo(videoId, currentState, toggleEl) {
+  const newState = !currentState;
+  // Optimistic UI update
+  toggleEl.dataset.active = String(newState);
+  toggleEl.classList.toggle("active", newState);
+
   try {
     await updateDoc(doc(db, "videos", videoId), {
-      isActive: !currentState,
+      isActive: newState,
       updatedAt: serverTimestamp()
     });
-    await loadVideos();
   } catch (error) {
-    console.error("Video durumu güncellenirken hata oluştu:", error);
+    // Revert on failure
+    toggleEl.dataset.active = String(currentState);
+    toggleEl.classList.toggle("active", currentState);
+    console.error("Video durumu güncellenirken hata:", error);
     alert("Video durumu güncellenemedi: " + error.message);
   }
 }
@@ -382,37 +423,38 @@ async function deleteVideo(videoId, fileName) {
 
   try {
     await deleteObject(ref(storage, "videos/" + fileName));
-  } catch (error) {
-    // If file not found in storage, continue with Firestore deletion
-    console.warn("Storage'dan dosya silinemedi (devam ediliyor):", error);
+  } catch (err) {
+    console.warn("Storage'dan video silinemedi:", err);
   }
+
+  // Try to delete thumbnail as well
+  try {
+    const thumbName = "thumb_" + fileName.replace(/\.mp4$/i, ".jpg");
+    await deleteObject(ref(storage, "thumbnails/" + thumbName));
+  } catch (_) { /* thumbnail may not exist */ }
 
   try {
     await deleteDoc(doc(db, "videos", videoId));
     await loadVideos();
   } catch (error) {
-    console.error("Video silinirken hata oluştu:", error);
+    console.error("Video silinirken hata:", error);
     alert("Video silinemedi: " + error.message);
   }
 }
 
 // ========== ORIENTATION HELPERS ==========
+const ORIENTATION = {
+  horizontal: { label: "Yatay",  badgeClass: "badge-horizontal" },
+  vertical:   { label: "Dikey",  badgeClass: "badge-vertical"   },
+  both:       { label: "Ortak",  badgeClass: "badge-both"       },
+};
+
 function getOrientationLabel(value) {
-  switch (value) {
-    case "horizontal": return "Yatay";
-    case "vertical": return "Dikey";
-    case "both": return "Ortak";
-    default: return value;
-  }
+  return ORIENTATION[value]?.label ?? value ?? "—";
 }
 
 function getOrientationBadgeClass(value) {
-  switch (value) {
-    case "horizontal": return "badge-horizontal";
-    case "vertical": return "badge-vertical";
-    case "both": return "badge-both";
-    default: return "";
-  }
+  return ORIENTATION[value]?.badgeClass ?? "";
 }
 
 function formatDate(dateValue) {

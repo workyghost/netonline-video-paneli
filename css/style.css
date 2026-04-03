@@ -1,18 +1,179 @@
 /* css/style.css */
 
-/* Login sayfası gradient arka plan */
+/* ---------- FONTS ---------- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+* {
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* ---------- LOGIN PAGE ---------- */
 .login-bg {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  background: #080c18;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 20% 0%, rgba(29, 78, 216, 0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 100%, rgba(109, 40, 217, 0.14) 0%, transparent 60%);
   min-height: 100vh;
 }
 
-/* Loading spinner animasyonu */
+/* ---------- DASHBOARD PAGE ---------- */
+.dashboard-bg {
+  background-color: #070b17;
+  background-image:
+    radial-gradient(ellipse 65% 50% at 10% -10%, rgba(29, 78, 216, 0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 90% 110%, rgba(109, 40, 217, 0.08) 0%, transparent 55%);
+  min-height: 100vh;
+}
+
+/* Sticky glass header */
+.glass-header {
+  background: rgba(7, 11, 23, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+/* Glass card (replaces bg-slate-800 sections) */
+.glass-card {
+  background: rgba(13, 18, 36, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Glass inputs */
+.glass-input {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  color: #f1f5f9 !important;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.glass-input:focus {
+  outline: none !important;
+  border-color: rgba(59, 130, 246, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12) !important;
+}
+.glass-input option {
+  background: #0f172a;
+  color: #f1f5f9;
+}
+
+/* Drop zone hover */
+.drop-zone-active {
+  border-color: #3b82f6 !important;
+  background: rgba(59, 130, 246, 0.08) !important;
+}
+
+/* ---------- TABLE ---------- */
+.video-table thead th {
+  color: #64748b;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0.75rem 1rem;
+}
+.video-table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.15s;
+}
+.video-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.video-table tbody td {
+  padding: 0.85rem 1rem;
+  color: #cbd5e1;
+  font-size: 0.875rem;
+}
+.video-table tbody td.td-title {
+  color: #f1f5f9;
+  font-weight: 500;
+}
+.video-table tbody td.td-muted {
+  color: #64748b;
+}
+
+/* ---------- ORIENTATION BADGES ---------- */
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+.badge-horizontal {
+  background: rgba(29, 78, 216, 0.18);
+  color: #93c5fd;
+  border: 1px solid rgba(147, 197, 253, 0.15);
+}
+.badge-vertical {
+  background: rgba(109, 40, 217, 0.18);
+  color: #c4b5fd;
+  border: 1px solid rgba(196, 181, 253, 0.15);
+}
+.badge-both {
+  background: rgba(6, 95, 70, 0.25);
+  color: #6ee7b7;
+  border: 1px solid rgba(110, 231, 183, 0.15);
+}
+
+/* ---------- TOGGLE SWITCH ---------- */
+.toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.10);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.25s;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.toggle-switch.active {
+  background: #2563eb;
+  border-color: transparent;
+}
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.25s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+.toggle-switch.active::after {
+  transform: translateX(20px);
+}
+
+/* ---------- PROGRESS BAR ---------- */
+.progress-track {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  height: 6px;
+  overflow: hidden;
+}
+.progress-fill {
+  background: linear-gradient(90deg, #2563eb, #7c3aed);
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}
+
+/* ---------- LOADING SPINNER ---------- */
 .spinner {
-  border: 3px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.2);
   border-top-color: #ffffff;
   border-radius: 50%;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   animation: spin 0.6s linear infinite;
   display: inline-block;
 }
@@ -21,62 +182,21 @@
   to { transform: rotate(360deg); }
 }
 
-/* Hata mesajı fade-in */
+/* ---------- FADE IN ---------- */
 .error-message {
-  animation: fadeIn 0.3s ease-in;
+  animation: fadeIn 0.25s ease-out;
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-5px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Toggle switch */
-.toggle-switch {
-  position: relative;
-  width: 44px;
-  height: 24px;
-  background: #475569;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: background 0.3s;
+/* ---------- RESUME OVERLAY ---------- */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1; }
 }
-
-.toggle-switch.active {
-  background: #2563eb;
+.pulse-slow {
+  animation: pulse-slow 2s ease-in-out infinite;
 }
-
-.toggle-switch::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
-  background: white;
-  border-radius: 50%;
-  transition: transform 0.3s;
-}
-
-.toggle-switch.active::after {
-  transform: translateX(20px);
-}
-
-/* Drop zone active state */
-.drop-zone-active {
-  border-color: #3b82f6 !important;
-  background: rgba(59, 130, 246, 0.1) !important;
-}
-
-/* Orientation badges */
-.badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.badge-horizontal { background: #1e3a5f; color: #60a5fa; }
-.badge-vertical { background: #3b1f4a; color: #c084fc; }
-.badge-both { background: #1a3a2a; color: #4ade80; }
