@@ -110,6 +110,12 @@ function handleFileSelection(file) {
   }
 
   selectedFile = file;
+
+  // Auto-fill title from filename
+  const nameWithoutExt = file.name.replace(/\.[^/.]+$/, ""); // remove extension
+  const cleanName = nameWithoutExt.replace(/[-_]/g, " "); // replace dashes/underscores with spaces
+  videoTitle.value = cleanName;
+
   selectedFileName.textContent = file.name;
   selectedFileName.classList.remove("hidden");
   uploadForm.classList.remove("hidden");
@@ -171,14 +177,23 @@ uploadButton.addEventListener("click", async () => {
     async () => {
       try {
         const fileUrl = await getDownloadURL(uploadTask.snapshot.ref);
+
+        // Generate thumbnail from video
+        let thumbnailUrl = "";
+        try {
+          thumbnailUrl = await generateThumbnail(selectedFile, fileName);
+        } catch (thumbError) {
+          console.warn("Thumbnail oluşturulamadı:", thumbError);
+        }
+
         const videoDoc = doc(collection(db, "videos"));
         await setDoc(videoDoc, {
-          title,
-          firmId,
-          orientation,
+          title: videoTitle.value.trim(),
+          firmId: firmSelect.value,
+          orientation: orientationSelect.value,
           fileName,
           fileUrl,
-          thumbnailUrl: "",
+          thumbnailUrl,
           isActive: true,
           expiresAt: expiryDate.value ? new Date(expiryDate.value) : null,
           createdAt: serverTimestamp(),
@@ -206,6 +221,65 @@ uploadButton.addEventListener("click", async () => {
     }
   );
 });
+
+// ========== GENERATE THUMBNAIL ==========
+async function generateThumbnail(file, fileName) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.muted = true;
+    video.playsInline = true;
+
+    const objectUrl = URL.createObjectURL(file);
+    video.src = objectUrl;
+
+    video.addEventListener("loadeddata", () => {
+      // Seek to 1 second (or 0 if video is shorter)
+      video.currentTime = Math.min(1, video.duration / 2);
+    });
+
+    video.addEventListener("seeked", async () => {
+      try {
+        // Capture frame to canvas
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Convert to JPEG blob
+        canvas.toBlob(async (blob) => {
+          try {
+            if (!blob) {
+              reject(new Error("Canvas blob oluşturulamadı"));
+              return;
+            }
+
+            // Upload thumbnail to Storage
+            const thumbFileName = "thumb_" + fileName.replace(".mp4", ".jpg");
+            const thumbRef = ref(storage, "thumbnails/" + thumbFileName);
+            await uploadBytesResumable(thumbRef, blob);
+            const thumbUrl = await getDownloadURL(thumbRef);
+
+            URL.revokeObjectURL(objectUrl);
+            resolve(thumbUrl);
+          } catch (uploadError) {
+            URL.revokeObjectURL(objectUrl);
+            reject(uploadError);
+          }
+        }, "image/jpeg", 0.7);
+      } catch (err) {
+        URL.revokeObjectURL(objectUrl);
+        reject(err);
+      }
+    });
+
+    video.addEventListener("error", () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Video yüklenemedi"));
+    });
+  });
+}
 
 // ========== LOAD VIDEOS ==========
 async function loadVideos() {
