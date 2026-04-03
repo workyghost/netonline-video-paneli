@@ -144,6 +144,9 @@ function playVideo(index) {
   mainVideo.load();
   bgVideo.load();
 
+  mainVideo.muted = false;
+  bgVideo.muted = true;
+
   mainVideo.play().catch(console.error);
   bgVideo.play().catch(console.error);
 }
@@ -157,6 +160,13 @@ function onVideoEnded() {
 async function startPlayer(firmId, mode) {
   setupScreen.classList.add("hidden");
   playerScreen.classList.remove("hidden");
+
+  // Request fullscreen
+  try {
+    await document.documentElement.requestFullscreen();
+  } catch (e) {
+    console.warn("Fullscreen desteklenmiyor:", e);
+  }
 
   // Set up ended event listener
   mainVideo.removeEventListener("ended", onVideoEnded);
@@ -239,6 +249,11 @@ resetButton.addEventListener("click", () => {
   videoPlaylist = [];
   currentVideoIndex = 0;
   hideNoVideosMessage();
+
+  // Exit fullscreen
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
+  }
 
   playerScreen.classList.add("hidden");
   setupScreen.classList.remove("hidden");
