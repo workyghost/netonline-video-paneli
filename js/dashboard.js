@@ -480,6 +480,383 @@ function openEditScreenModal({ id, name, location, orientation, firm }) {
     }
   });
 }
-function initContents()  { document.getElementById("page-contents").innerHTML  = '<p class="text-gray-500 text-sm">Yükleniyor...</p>'; }
+function initContents() {
+  const el = document.getElementById("page-contents");
+
+  let firmFilterOpts = '<option value="">Tüm Firmalar</option>';
+  firmsMap.forEach((name, id) => {
+    firmFilterOpts += `<option value="${esc(id)}">${esc(name)}</option>`;
+  });
+
+  el.innerHTML = `
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <h2 class="text-lg font-semibold text-white">İçerikler</h2>
+      <div class="flex flex-wrap items-center gap-2">
+        <select id="filter-firm" class="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-1.5">
+          ${firmFilterOpts}
+        </select>
+        <select id="filter-orientation" class="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-1.5">
+          <option value="">Tüm Yönler</option>
+          <option value="horizontal">Yatay</option>
+          <option value="vertical">Dikey</option>
+          <option value="both">Ortak</option>
+        </select>
+        <input id="filter-search" type="text" placeholder="Video ara..." maxlength="100"
+          class="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-1.5 placeholder-gray-600 w-40">
+        <button id="btn-upload-video" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors">
+          + Video Yükle
+        </button>
+      </div>
+    </div>
+    <div id="contents-empty" class="hidden text-center py-16 text-gray-600">
+      <p class="text-sm">Henüz video yüklenmemiş.</p>
+    </div>
+    <div id="contents-table-wrap" class="hidden bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr class="border-b border-gray-800">
+            <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium w-16">Kapak</th>
+            <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Video Adı</th>
+            <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Firma</th>
+            <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Yön</th>
+            <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Bitiş</th>
+            <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Durum</th>
+            <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">İşlem</th>
+          </tr></thead>
+          <tbody id="contents-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  let allVideos = [];
+
+  async function loadVideos() {
+    try {
+      const snap = await getDocs(query(collection(db, "videos"), orderBy("createdAt", "desc")));
+      allVideos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderVideos();
+    } catch (e) {
+      showToast("Videolar yüklenemedi: " + e.message, "error");
+    }
+  }
+
+  function renderVideos() {
+    const firmFilter   = document.getElementById("filter-firm")?.value || "";
+    const orientFilter = document.getElementById("filter-orientation")?.value || "";
+    const search       = (document.getElementById("filter-search")?.value || "").toLowerCase();
+
+    const filtered = allVideos.filter(v => {
+      if (firmFilter   && v.firmId      !== firmFilter)   return false;
+      if (orientFilter && v.orientation !== orientFilter) return false;
+      if (search       && !v.title?.toLowerCase().includes(search)) return false;
+      return true;
+    });
+
+    const tbody     = document.getElementById("contents-tbody");
+    const emptyEl   = document.getElementById("contents-empty");
+    const tableWrap = document.getElementById("contents-table-wrap");
+    if (!tbody) return;
+
+    if (filtered.length === 0) {
+      emptyEl?.classList.remove("hidden");
+      tableWrap?.classList.add("hidden");
+      return;
+    }
+    emptyEl?.classList.add("hidden");
+    tableWrap?.classList.remove("hidden");
+    tbody.innerHTML = "";
+
+    const BADGE = {
+      horizontal: "bg-blue-500/10 text-blue-400",
+      vertical:   "bg-purple-500/10 text-purple-400",
+      both:       "bg-green-500/10 text-green-400"
+    };
+
+    filtered.forEach(v => {
+      const tr = document.createElement("tr");
+      tr.className = "border-b border-gray-800/50 hover:bg-gray-800/20";
+
+      const tdThumb = document.createElement("td");
+      tdThumb.className = "px-4 py-3";
+      if (v.thumbnailUrl) {
+        const img = document.createElement("img");
+        img.src = v.thumbnailUrl; img.alt = v.title;
+        img.className = "w-16 h-10 object-cover rounded";
+        tdThumb.appendChild(img);
+      } else {
+        tdThumb.innerHTML = `<div class="w-16 h-10 bg-gray-800 rounded flex items-center justify-center">
+          <svg class="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+          </svg></div>`;
+      }
+
+      tr.innerHTML = `
+        <td class="px-4 py-3 text-gray-200 font-medium">${esc(v.title)}</td>
+        <td class="px-4 py-3 text-gray-400">${esc(firmsMap.get(v.firmId) || "—")}</td>
+        <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-xs font-medium ${BADGE[v.orientation] || ""}">${esc(ORIENTATION_LABEL[v.orientation] || v.orientation)}</span></td>
+        <td class="px-4 py-3 text-gray-400 text-xs">${formatDate(v.expiresAt)}</td>
+        <td class="px-4 py-3">
+          <div class="toggle-btn w-10 h-5 rounded-full cursor-pointer transition-colors relative ${v.isActive ? "bg-blue-600" : "bg-gray-700"}"
+            data-id="${esc(v.id)}" data-active="${v.isActive}">
+            <span class="absolute top-0.5 ${v.isActive ? "right-0.5" : "left-0.5"} w-4 h-4 bg-white rounded-full transition-all"></span>
+          </div>
+        </td>
+        <td class="px-4 py-3">
+          <button class="btn-delete-video px-3 py-1 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded transition-colors"
+            data-id="${esc(v.id)}" data-filename="${esc(v.fileName || "")}">Sil</button>
+        </td>
+      `;
+      tr.insertBefore(tdThumb, tr.firstChild);
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll(".toggle-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const newActive = btn.dataset.active !== "true";
+        btn.dataset.active = String(newActive);
+        btn.classList.toggle("bg-blue-600", newActive);
+        btn.classList.toggle("bg-gray-700", !newActive);
+        const dot = btn.querySelector("span");
+        dot.classList.toggle("right-0.5", newActive);
+        dot.classList.toggle("left-0.5", !newActive);
+        try {
+          await updateDoc(doc(db, "videos", btn.dataset.id), { isActive: newActive, updatedAt: serverTimestamp() });
+        } catch (e) {
+          showToast("Güncellenemedi: " + e.message, "error");
+          btn.dataset.active = String(!newActive);
+          btn.classList.toggle("bg-blue-600", !newActive);
+          btn.classList.toggle("bg-gray-700", newActive);
+          dot.classList.toggle("right-0.5", !newActive);
+          dot.classList.toggle("left-0.5", newActive);
+        }
+      });
+    });
+
+    tbody.querySelectorAll(".btn-delete-video").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("Bu videoyu silmek istediğinizden emin misiniz?")) return;
+        const { id: videoId, filename } = btn.dataset;
+        if (filename) {
+          try { await deleteObject(ref(storage, "videos/" + filename)); } catch (_) {}
+          try { await deleteObject(ref(storage, "thumbnails/thumb_" + filename.replace(/\.mp4$/i, ".jpg"))); } catch (_) {}
+        }
+        try {
+          await deleteDoc(doc(db, "videos", videoId));
+          showToast("Video silindi");
+          await loadVideos();
+        } catch (e) {
+          showToast("Silinemedi: " + e.message, "error");
+        }
+      });
+    });
+  }
+
+  ["filter-firm", "filter-orientation"].forEach(id => {
+    document.getElementById(id)?.addEventListener("change", renderVideos);
+  });
+  document.getElementById("filter-search")?.addEventListener("input", renderVideos);
+
+  document.getElementById("btn-upload-video").addEventListener("click", openUploadModal);
+
+  function openUploadModal() {
+    let firmUploadOpts = '<option value="">Firma seçin...</option>';
+    firmsMap.forEach((name, id) => {
+      firmUploadOpts += `<option value="${esc(id)}">${esc(name)}</option>`;
+    });
+
+    openModal(`
+      <h3 class="text-base font-semibold text-white mb-4">Video Yükle</h3>
+      <div id="upload-drop-zone" class="border-2 border-dashed border-gray-700 rounded-xl p-8 text-center cursor-pointer hover:border-blue-500/50 hover:bg-gray-800/30 transition-colors mb-4">
+        <svg class="mx-auto h-8 w-8 text-gray-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+        </svg>
+        <p class="text-sm text-gray-300">Sürükle veya <span class="text-blue-400 underline">tıkla</span></p>
+        <p class="text-xs text-gray-600 mt-1">MP4 · Çoklu seçim desteklenir</p>
+        <input type="file" id="upload-file-input" accept=".mp4,video/mp4" multiple class="hidden">
+      </div>
+      <p id="upload-file-name" class="text-xs text-gray-400 mb-3 hidden"></p>
+      <div id="upload-form-fields" class="hidden space-y-3">
+        <div id="upload-title-wrap">
+          <label class="block text-xs text-gray-400 mb-1">Video Başlığı</label>
+          <input id="upload-title" type="text" maxlength="200" placeholder="Video adı"
+            class="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-600">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Firma</label>
+            <select id="upload-firm" class="w-full bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2">
+              ${firmUploadOpts}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Yön</label>
+            <select id="upload-orientation" class="w-full bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2">
+              <option value="">Seçin...</option>
+              <option value="horizontal">Yatay</option>
+              <option value="vertical">Dikey</option>
+              <option value="both">Ortak</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Bitiş Tarihi <span class="text-gray-600">(opsiyonel)</span></label>
+          <input type="date" id="upload-expiry" class="w-full bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2">
+        </div>
+        <div id="upload-progress-wrap" class="hidden">
+          <div class="flex justify-between mb-1">
+            <span id="upload-progress-label" class="text-xs text-gray-400">Yükleniyor...</span>
+            <span id="upload-progress-pct" class="text-xs text-blue-400">0%</span>
+          </div>
+          <div class="w-full bg-gray-800 rounded-full h-1.5">
+            <div id="upload-progress-bar" class="bg-blue-600 h-1.5 rounded-full transition-all" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-1">
+          <button onclick="closeModal()" id="upload-cancel-btn" class="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 rounded-lg">İptal</button>
+          <button id="upload-submit-btn" class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg disabled:opacity-50">Yükle</button>
+        </div>
+      </div>
+    `);
+
+    let selectedFiles = [];
+    const dropZone  = document.getElementById("upload-drop-zone");
+    const fileInput = document.getElementById("upload-file-input");
+
+    dropZone.addEventListener("click", () => fileInput.click());
+    dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("border-blue-500"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("border-blue-500"));
+    dropZone.addEventListener("drop", e => { e.preventDefault(); dropZone.classList.remove("border-blue-500"); handleFiles(e.dataTransfer.files); });
+    fileInput.addEventListener("change", () => handleFiles(fileInput.files));
+
+    function handleFiles(files) {
+      const valid = Array.from(files).filter(f => f.type === "video/mp4");
+      if (!valid.length) { showToast("Yalnızca MP4 kabul edilir", "error"); return; }
+      selectedFiles = valid;
+      const nameEl    = document.getElementById("upload-file-name");
+      const formEl    = document.getElementById("upload-form-fields");
+      const titleWrap = document.getElementById("upload-title-wrap");
+      const titleInput = document.getElementById("upload-title");
+      if (valid.length === 1) {
+        nameEl.textContent = valid[0].name;
+        titleInput.value = valid[0].name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+        titleWrap.classList.remove("hidden");
+      } else {
+        nameEl.textContent = `${valid.length} video seçildi`;
+        titleWrap.classList.add("hidden");
+      }
+      nameEl.classList.remove("hidden");
+      formEl.classList.remove("hidden");
+    }
+
+    document.getElementById("upload-submit-btn").addEventListener("click", async () => {
+      if (!selectedFiles.length) { showToast("Dosya seçin", "error"); return; }
+      const firmId      = document.getElementById("upload-firm").value;
+      const orientation = document.getElementById("upload-orientation").value;
+      const expiry      = document.getElementById("upload-expiry").value;
+      if (selectedFiles.length === 1 && !document.getElementById("upload-title").value.trim()) {
+        showToast("Başlık girin", "error"); return;
+      }
+      if (!firmId)      { showToast("Firma seçin", "error"); return; }
+      if (!orientation) { showToast("Yön seçin", "error"); return; }
+
+      isUploading = true;
+      document.getElementById("upload-submit-btn").disabled = true;
+      document.getElementById("upload-cancel-btn").disabled = true;
+      document.getElementById("upload-progress-wrap").classList.remove("hidden");
+
+      const total = selectedFiles.length;
+      for (let i = 0; i < total; i++) {
+        const file  = selectedFiles[i];
+        const title = total === 1
+          ? document.getElementById("upload-title").value.trim()
+          : file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+        document.getElementById("upload-progress-label").textContent =
+          total > 1 ? `Video ${i + 1} / ${total} yükleniyor...` : "Yükleniyor...";
+        document.getElementById("upload-progress-bar").style.width = "0%";
+        document.getElementById("upload-progress-pct").textContent = "0%";
+        try {
+          await uploadSingleVideo(file, title, firmId, orientation, expiry);
+        } catch (e) {
+          showToast(`"${file.name}" yüklenemedi: ${e.message}`, "error");
+        }
+      }
+
+      isUploading = false;
+      closeModal();
+      showToast(`${total} video yüklendi`, "success");
+      await loadVideos();
+    });
+  }
+
+  function uploadSingleVideo(file, title, firmId, orientation, expiry) {
+    return new Promise((resolve, reject) => {
+      const fileName   = Date.now() + "_" + file.name;
+      const storageRef = ref(storage, "videos/" + fileName);
+      const task       = uploadBytesResumable(storageRef, file);
+      task.on("state_changed",
+        snap => {
+          const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+          const bar   = document.getElementById("upload-progress-bar");
+          const pctEl = document.getElementById("upload-progress-pct");
+          if (bar)   bar.style.width = pct + "%";
+          if (pctEl) pctEl.textContent = pct + "%";
+        },
+        reject,
+        async () => {
+          try {
+            const fileUrl = await getDownloadURL(task.snapshot.ref);
+            let thumbnailUrl = "";
+            try { thumbnailUrl = await generateThumbnail(file, fileName); } catch (_) {}
+            const videoRef = doc(collection(db, "videos"));
+            await setDoc(videoRef, {
+              title, firmId, orientation, fileName, fileUrl, thumbnailUrl,
+              isActive: true,
+              expiresAt: expiry ? new Date(expiry) : null,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+            resolve();
+          } catch (e) { reject(e); }
+        }
+      );
+    });
+  }
+
+  function generateThumbnail(file, fileName) {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement("video");
+      video.preload = "auto"; video.muted = true; video.playsInline = true;
+      const objectUrl = URL.createObjectURL(file);
+      video.src = objectUrl;
+      let captured = false;
+      const captureFrame = async () => {
+        if (captured) return;
+        captured = true;
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width  = video.videoWidth  || 640;
+          canvas.height = video.videoHeight || 360;
+          canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob(async blob => {
+            URL.revokeObjectURL(objectUrl);
+            if (!blob) { reject(new Error("Canvas blob oluşturulamadı")); return; }
+            const thumbFileName = "thumb_" + fileName.replace(/\.mp4$/i, ".jpg");
+            const thumbRef = ref(storage, "thumbnails/" + thumbFileName);
+            await uploadBytesResumable(thumbRef, blob);
+            resolve(await getDownloadURL(thumbRef));
+          }, "image/jpeg", 0.75);
+        } catch (e) { URL.revokeObjectURL(objectUrl); reject(e); }
+      };
+      video.addEventListener("loadedmetadata", () => { video.currentTime = video.duration > 1 ? 1 : video.duration * 0.25; });
+      video.addEventListener("seeked", captureFrame);
+      setTimeout(() => { if (!captured) captureFrame(); }, 4000);
+      video.addEventListener("error", () => { URL.revokeObjectURL(objectUrl); reject(new Error("Video yüklenemedi")); });
+    });
+  }
+
+  unsubscribers.contents = null;
+  loadVideos();
+}
 function initPlaylists() { document.getElementById("page-playlists").innerHTML = '<p class="text-gray-500 text-sm">Yükleniyor...</p>'; }
 function initSettings()  { document.getElementById("page-settings").innerHTML  = '<p class="text-gray-500 text-sm">Yükleniyor...</p>'; }

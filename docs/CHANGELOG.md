@@ -6,6 +6,18 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [1.2.5] — 2026-04-06
+
+### Eklendi
+- `initContents()` implementasyonu: video tablosu, firma/yön/arama filtreleri, aktif/pasif toggle, silme
+- Upload modal: drag & drop veya dosya seç, çoklu MP4 desteği, firma/yön/bitiş tarihi alanları, yükleme progress bar
+- `uploadSingleVideo()`: Firebase Storage'a yükleme, Firestore `videos` koleksiyonuna `setDoc`
+- `generateThumbnail()`: video canvas'tan JPEG kapak oluşturma ve Storage'a yükleme
+- Silme işlemi: video dosyası ve kapak görseli Storage'dan, belge Firestore'dan silinir
+- `unsubscribers.contents = null` — getDocs tabanlı sayfa, onSnapshot listener gerektirmez
+
+---
+
 ## [1.2.4] — 2026-04-06
 
 ### Eklendi
