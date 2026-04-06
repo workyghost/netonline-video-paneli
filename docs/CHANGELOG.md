@@ -6,6 +6,14 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.0.1] — 2026-04-06
+
+### Düzeltildi
+- **Kritik: Sonsuz döngü** — player.html ve dashboard.html aynı Firebase Auth IndexedDB'yi paylaşıyordu; player'ın `signInAnonymously` çağrısı admin session'ını silip dashboard'u login sayfasına yönlendiriyordu
+- Player için `netonline-player` adlı ayrı Firebase App instance oluşturuldu; auth state'leri artık tamamen izole
+
+---
+
 ## [2.0.0] — 2026-04-06
 
 ### Eklendi
