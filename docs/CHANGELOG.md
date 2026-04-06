@@ -6,6 +6,16 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [1.2.3] — 2026-04-06
+
+### Eklendi
+- `initOverview()` implementasyonu: 4 metrik kartı (Toplam Ekran, Çevrimiçi, Toplam Video, Aktif Video) ve ekran durumu tablosu
+- Metrik kartlar `onSnapshot` ile realtime güncellenir; ekran listesi son görülme zamanına göre online/offline badge gösterir
+- Online kriteri: `lastSeen` < 2 dakika; `firmsMap` üzerinden firma adı çözümleme
+- Sayfa temizliği için `unsubscribers.overview` hem screens hem videos listener'larını kapatır
+
+---
+
 ## [1.2.2] — 2026-04-06
 
 ### Değiştirildi

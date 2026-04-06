@@ -150,7 +150,95 @@ function firmsOptions(selected = "") {
 }
 
 // ========== PAGE STUBS (filled in subsequent tasks) ==========
-function initOverview()  { document.getElementById("page-overview").innerHTML  = '<p class="text-gray-500 text-sm">Yükleniyor...</p>'; }
+function initOverview() {
+  const el = document.getElementById("page-overview");
+  el.innerHTML = `
+    <h2 class="text-lg font-semibold text-white mb-6">Genel Bakış</h2>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <p class="text-xs text-gray-500 mb-1">Toplam Ekran</p>
+        <p class="text-2xl font-bold text-white" id="m-total-screens">—</p>
+      </div>
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <p class="text-xs text-gray-500 mb-1">Çevrimiçi</p>
+        <p class="text-2xl font-bold text-green-400" id="m-online-screens">—</p>
+      </div>
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <p class="text-xs text-gray-500 mb-1">Toplam Video</p>
+        <p class="text-2xl font-bold text-white" id="m-total-videos">—</p>
+      </div>
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <p class="text-xs text-gray-500 mb-1">Aktif Video</p>
+        <p class="text-2xl font-bold text-white" id="m-active-videos">—</p>
+      </div>
+    </div>
+    <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      <div class="px-4 py-3 border-b border-gray-800">
+        <h3 class="text-sm font-medium text-gray-300">Ekran Durumu</h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr class="border-b border-gray-800">
+            <th class="text-left px-4 py-2 text-xs text-gray-500 font-medium">Ekran Adı</th>
+            <th class="text-left px-4 py-2 text-xs text-gray-500 font-medium">Firma</th>
+            <th class="text-left px-4 py-2 text-xs text-gray-500 font-medium">Durum</th>
+            <th class="text-left px-4 py-2 text-xs text-gray-500 font-medium">Şu An Oynayan</th>
+            <th class="text-left px-4 py-2 text-xs text-gray-500 font-medium">Son Görülme</th>
+          </tr></thead>
+          <tbody id="overview-screen-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  const unsubVideos = onSnapshot(collection(db, "videos"), (snap) => {
+    const active = snap.docs.filter(d => d.data().isActive).length;
+    const tv = document.getElementById("m-total-videos");
+    const av = document.getElementById("m-active-videos");
+    if (tv) tv.textContent = snap.size;
+    if (av) av.textContent = active;
+  });
+
+  const unsubScreens = onSnapshot(collection(db, "screens"), (snap) => {
+    const now = Date.now();
+    const TWO_MIN = 2 * 60 * 1000;
+    let online = 0;
+    const tbody = document.getElementById("overview-screen-tbody");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    snap.forEach(d => {
+      const s = d.data();
+      const lastMs = s.lastSeen?.toDate?.().getTime() ?? 0;
+      const isOnline = (now - lastMs) < TWO_MIN;
+      if (isOnline) online++;
+
+      const tr = document.createElement("tr");
+      tr.className = "border-b border-gray-800/50 hover:bg-gray-800/20";
+      tr.innerHTML = `
+        <td class="px-4 py-3 text-gray-200 font-medium">${esc(s.name)}</td>
+        <td class="px-4 py-3 text-gray-400">${esc(firmsMap.get(s.firmId) || "—")}</td>
+        <td class="px-4 py-3">
+          <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium
+            ${isOnline ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}">
+            <span class="w-1.5 h-1.5 rounded-full ${isOnline ? "bg-green-400" : "bg-red-400"}"></span>
+            ${isOnline ? "Çevrimiçi" : "Çevrimdışı"}
+          </span>
+        </td>
+        <td class="px-4 py-3 text-gray-400 text-xs">${esc(s.currentVideoTitle || "—")}</td>
+        <td class="px-4 py-3 text-gray-500 text-xs">${timeAgo(s.lastSeen)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    const ts = document.getElementById("m-total-screens");
+    const os = document.getElementById("m-online-screens");
+    if (ts) ts.textContent = snap.size;
+    if (os) os.textContent = online;
+  });
+
+  unsubscribers.overview = () => { unsubScreens(); unsubVideos(); };
+}
 function initScreens()   { document.getElementById("page-screens").innerHTML   = '<p class="text-gray-500 text-sm">Yükleniyor...</p>'; }
 function initContents()  { document.getElementById("page-contents").innerHTML  = '<p class="text-gray-500 text-sm">Yükleniyor...</p>'; }
 function initPlaylists() { document.getElementById("page-playlists").innerHTML = '<p class="text-gray-500 text-sm">Yükleniyor...</p>'; }
