@@ -45,11 +45,13 @@ function showPage(pageId) {
     unsubscribers[currentPage] = null;
   }
   // Toggle page visibility
+  const pageEl = document.getElementById("page-" + pageId);
+  if (!pageEl) { console.warn("Unknown page:", pageId); return; }
   document.querySelectorAll(".page").forEach(p => p.classList.add("hidden"));
-  document.getElementById("page-" + pageId).classList.remove("hidden");
+  pageEl.classList.remove("hidden");
   // Toggle nav active state
   document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
-  document.querySelector(`[data-page="${pageId}"]`).classList.add("active");
+  document.querySelector(`[data-page="${pageId}"]`)?.classList.add("active");
   currentPage = pageId;
   // Init page
   const inits = {
@@ -109,7 +111,7 @@ function esc(str) {
 function timeAgo(timestamp) {
   if (!timestamp) return "—";
   try {
-    const diff = Date.now() - timestamp.toDate().getTime();
+    const diff = Math.max(0, Date.now() - timestamp.toDate().getTime());
     const minutes = Math.floor(diff / 60000);
     if (minutes < 1)  return "Az önce";
     if (minutes < 60) return `${minutes} dakika önce`;
