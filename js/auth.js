@@ -49,7 +49,7 @@ function setLoading(isLoading) {
 
 // Oturum kontrolü — zaten giriş yapılmışsa dashboard'a yönlendir
 onAuthStateChanged(auth, (user) => {
-  if (user) {
+  if (user && user.email) {
     window.location.href = "dashboard.html";
   }
 });

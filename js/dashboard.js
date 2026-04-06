@@ -18,7 +18,7 @@ let isUploading   = false;     // blocks modal close during upload
 
 // ========== AUTH ==========
 onAuthStateChanged(auth, async (user) => {
-  if (!user || user.isAnonymous) {
+  if (!user || !user.email) {
     window.location.href = "index.html";
     return;
   }
