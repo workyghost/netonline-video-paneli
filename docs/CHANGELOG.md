@@ -6,6 +6,18 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [1.2.7] — 2026-04-06
+
+### Eklendi
+- `initSettings()` tam implementasyonu: firma CRUD yönetimi ve şifre değiştirme
+- Firma listesi `onSnapshot` ile realtime güncellenir; satır içi isim düzenleme ve kaydetme
+- Firma silme öncesinde bağlı `screens` ve `videos` sayısı kontrol edilir; kullanımdaysa uyarılı confirm
+- Firma ekleme/silme/güncelleme işlemlerinde `firmsMap` in-memory güncellenir
+- Şifre değiştirme: mevcut şifre ile yeniden kimlik doğrulama (`reauthenticateWithCredential`), doğrulama hataları kullanıcıya gösterilir
+- `unsubscribers.settings = unsubFirms` — sayfa değişince listener temizlenir
+
+---
+
 ## [1.2.6] — 2026-04-06
 
 ### Eklendi
