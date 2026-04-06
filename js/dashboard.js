@@ -909,7 +909,7 @@ function initPlaylists() {
           <td class="px-4 py-3 text-gray-400">${(p.items || []).length}</td>
           <td class="px-4 py-3 flex gap-2">
             <button class="btn-edit-pl px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded" data-id="${esc(d.id)}">Düzenle</button>
-            <button class="btn-delete-pl px-2 py-1 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded" data-id="${esc(d.id)}" data-name="${esc(p.name)}">Sil</button>
+            <button class="btn-delete-pl px-2 py-1 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded" data-id="${esc(d.id)}" data-name="${esc(p.name)}" data-raw-name="${p.name.replace(/"/g, '&quot;')}">Sil</button>
           </td>
         `;
         tbody.appendChild(tr);
@@ -917,8 +917,8 @@ function initPlaylists() {
 
       tbody.querySelectorAll(".btn-edit-pl").forEach(btn => {
         btn.addEventListener("click", async () => {
-          const snap = await getDoc(doc(db, "playlists", btn.dataset.id));
-          if (snap.exists()) openPlaylistModal(btn.dataset.id, snap.data());
+          const plSnap = await getDoc(doc(db, "playlists", btn.dataset.id));
+          if (plSnap.exists()) openPlaylistModal(btn.dataset.id, plSnap.data());
         });
       });
 
@@ -928,7 +928,7 @@ function initPlaylists() {
           if (!screensSnap.empty) {
             if (!confirm(`Bu playlist ${screensSnap.size} ekranda kullanılıyor. Yine de silmek istiyor musunuz?`)) return;
           } else {
-            if (!confirm(`"${btn.dataset.name}" silinecek. Emin misiniz?`)) return;
+            if (!confirm(`"${btn.dataset.rawName}" silinecek. Emin misiniz?`)) return;
           }
           try {
             await deleteDoc(doc(db, "playlists", btn.dataset.id));
@@ -982,10 +982,14 @@ function initPlaylists() {
     let videosForFirm = [];
 
     async function loadVideosForFirm(firmId) {
-      const snap = await getDocs(query(collection(db, "videos"), where("firmId", "==", firmId)));
-      videosForFirm = snap.docs.map(d => ({ id: d.id, title: d.data().title }));
-      renderVideoCheckboxes();
-      renderOrderList();
+      try {
+        const snap = await getDocs(query(collection(db, "videos"), where("firmId", "==", firmId)));
+        videosForFirm = snap.docs.map(d => ({ id: d.id, title: d.data().title }));
+        renderVideoCheckboxes();
+        renderOrderList();
+      } catch (e) {
+        showToast("Videolar yüklenemedi: " + e.message, "error");
+      }
     }
 
     function renderVideoCheckboxes() {
