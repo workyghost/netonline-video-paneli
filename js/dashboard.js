@@ -130,6 +130,7 @@ function formatDate(ts) {
 }
 
 const ORIENTATION_LABEL = { horizontal: "Yatay", vertical: "Dikey", both: "Ortak" };
+const ORIENTATION_BADGE = { horizontal: "bg-blue-500/10 text-blue-400", vertical: "bg-purple-500/10 text-purple-400", both: "bg-green-500/10 text-green-400" };
 
 async function loadFirmsMap() {
   try {
@@ -567,12 +568,6 @@ function initContents() {
     tableWrap?.classList.remove("hidden");
     tbody.innerHTML = "";
 
-    const BADGE = {
-      horizontal: "bg-blue-500/10 text-blue-400",
-      vertical:   "bg-purple-500/10 text-purple-400",
-      both:       "bg-green-500/10 text-green-400"
-    };
-
     filtered.forEach(v => {
       const tr = document.createElement("tr");
       tr.className = "border-b border-gray-800/50 hover:bg-gray-800/20";
@@ -594,7 +589,7 @@ function initContents() {
       tr.innerHTML = `
         <td class="px-4 py-3 text-gray-200 font-medium">${esc(v.title)}</td>
         <td class="px-4 py-3 text-gray-400">${esc(firmsMap.get(v.firmId) || "—")}</td>
-        <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-xs font-medium ${BADGE[v.orientation] || ""}">${esc(ORIENTATION_LABEL[v.orientation] || v.orientation)}</span></td>
+        <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-xs font-medium ${ORIENTATION_BADGE[v.orientation] || ""}">${esc(ORIENTATION_LABEL[v.orientation] || v.orientation)}</span></td>
         <td class="px-4 py-3 text-gray-400 text-xs">${formatDate(v.expiresAt)}</td>
         <td class="px-4 py-3">
           <div class="toggle-btn w-10 h-5 rounded-full cursor-pointer transition-colors relative ${v.isActive ? "bg-blue-600" : "bg-gray-700"}"
@@ -636,10 +631,12 @@ function initContents() {
     tbody.querySelectorAll(".btn-delete-video").forEach(btn => {
       btn.addEventListener("click", async () => {
         if (!confirm("Bu videoyu silmek istediğinizden emin misiniz?")) return;
-        const { id: videoId, filename } = btn.dataset;
-        if (filename) {
-          try { await deleteObject(ref(storage, "videos/" + filename)); } catch (_) {}
-          try { await deleteObject(ref(storage, "thumbnails/thumb_" + filename.replace(/\.mp4$/i, ".jpg"))); } catch (_) {}
+        const videoId = btn.dataset.id;
+        const video = allVideos.find(v => v.id === videoId);
+        const fileName = video?.fileName || "";
+        if (fileName) {
+          try { await deleteObject(ref(storage, "videos/" + fileName)); } catch (_) {}
+          try { await deleteObject(ref(storage, "thumbnails/thumb_" + fileName.replace(/\.mp4$/i, ".jpg"))); } catch (_) {}
         }
         try {
           await deleteDoc(doc(db, "videos", videoId));
@@ -766,25 +763,29 @@ function initContents() {
       document.getElementById("upload-progress-wrap").classList.remove("hidden");
 
       const total = selectedFiles.length;
-      for (let i = 0; i < total; i++) {
-        const file  = selectedFiles[i];
-        const title = total === 1
-          ? document.getElementById("upload-title").value.trim()
-          : file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
-        document.getElementById("upload-progress-label").textContent =
-          total > 1 ? `Video ${i + 1} / ${total} yükleniyor...` : "Yükleniyor...";
-        document.getElementById("upload-progress-bar").style.width = "0%";
-        document.getElementById("upload-progress-pct").textContent = "0%";
-        try {
-          await uploadSingleVideo(file, title, firmId, orientation, expiry);
-        } catch (e) {
-          showToast(`"${file.name}" yüklenemedi: ${e.message}`, "error");
+      let successCount = 0;
+      try {
+        for (let i = 0; i < total; i++) {
+          const file  = selectedFiles[i];
+          const title = total === 1
+            ? document.getElementById("upload-title").value.trim()
+            : file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+          document.getElementById("upload-progress-label").textContent =
+            total > 1 ? `Video ${i + 1} / ${total} yükleniyor...` : "Yükleniyor...";
+          document.getElementById("upload-progress-bar").style.width = "0%";
+          document.getElementById("upload-progress-pct").textContent = "0%";
+          try {
+            await uploadSingleVideo(file, title, firmId, orientation, expiry);
+            successCount++;
+          } catch (e) {
+            showToast(`"${file.name}" yüklenemedi: ${e.message}`, "error");
+          }
         }
+      } finally {
+        isUploading = false;
       }
-
-      isUploading = false;
       closeModal();
-      showToast(`${total} video yüklendi`, "success");
+      if (successCount > 0) showToast(`${successCount} video yüklendi`, "success");
       await loadVideos();
     });
   }
