@@ -859,5 +859,238 @@ function initContents() {
   unsubscribers.contents = null;
   loadVideos();
 }
-function initPlaylists() { document.getElementById("page-playlists").innerHTML = '<p class="text-gray-500 text-sm">Yükleniyor...</p>'; }
+function initPlaylists() {
+  const el = document.getElementById("page-playlists");
+  el.innerHTML = `
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-lg font-semibold text-white">Playlist'ler</h2>
+      <button id="btn-new-playlist" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors">
+        + Yeni Playlist
+      </button>
+    </div>
+    <div id="playlists-empty" class="hidden text-center py-16 text-gray-600"><p class="text-sm">Henüz playlist yok.</p></div>
+    <div id="playlists-table-wrap" class="hidden bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      <table class="w-full text-sm">
+        <thead><tr class="border-b border-gray-800">
+          <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Playlist Adı</th>
+          <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Firma</th>
+          <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Video Sayısı</th>
+          <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">İşlemler</th>
+        </tr></thead>
+        <tbody id="playlists-tbody"></tbody>
+      </table>
+    </div>
+  `;
+
+  async function loadPlaylists() {
+    try {
+      const snap = await getDocs(collection(db, "playlists"));
+      const tbody    = document.getElementById("playlists-tbody");
+      const emptyEl  = document.getElementById("playlists-empty");
+      const tableWrap = document.getElementById("playlists-table-wrap");
+      if (!tbody) return;
+      tbody.innerHTML = "";
+
+      if (snap.empty) {
+        emptyEl?.classList.remove("hidden");
+        tableWrap?.classList.add("hidden");
+        return;
+      }
+      emptyEl?.classList.add("hidden");
+      tableWrap?.classList.remove("hidden");
+
+      snap.forEach(d => {
+        const p = d.data();
+        const tr = document.createElement("tr");
+        tr.className = "border-b border-gray-800/50 hover:bg-gray-800/20";
+        tr.innerHTML = `
+          <td class="px-4 py-3 text-gray-200 font-medium">${esc(p.name)}</td>
+          <td class="px-4 py-3 text-gray-400">${esc(firmsMap.get(p.firmId) || "—")}</td>
+          <td class="px-4 py-3 text-gray-400">${(p.items || []).length}</td>
+          <td class="px-4 py-3 flex gap-2">
+            <button class="btn-edit-pl px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded" data-id="${esc(d.id)}">Düzenle</button>
+            <button class="btn-delete-pl px-2 py-1 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded" data-id="${esc(d.id)}" data-name="${esc(p.name)}">Sil</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      tbody.querySelectorAll(".btn-edit-pl").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const snap = await getDoc(doc(db, "playlists", btn.dataset.id));
+          if (snap.exists()) openPlaylistModal(btn.dataset.id, snap.data());
+        });
+      });
+
+      tbody.querySelectorAll(".btn-delete-pl").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const screensSnap = await getDocs(query(collection(db, "screens"), where("playlistId", "==", btn.dataset.id)));
+          if (!screensSnap.empty) {
+            if (!confirm(`Bu playlist ${screensSnap.size} ekranda kullanılıyor. Yine de silmek istiyor musunuz?`)) return;
+          } else {
+            if (!confirm(`"${btn.dataset.name}" silinecek. Emin misiniz?`)) return;
+          }
+          try {
+            await deleteDoc(doc(db, "playlists", btn.dataset.id));
+            showToast("Playlist silindi");
+            loadPlaylists();
+          } catch (e) {
+            showToast("Silinemedi: " + e.message, "error");
+          }
+        });
+      });
+    } catch (e) {
+      showToast("Playlist'ler yüklenemedi: " + e.message, "error");
+    }
+  }
+
+  document.getElementById("btn-new-playlist").addEventListener("click", () => openPlaylistModal(null, null));
+
+  async function openPlaylistModal(playlistId, existing) {
+    openModal(`
+      <h3 class="text-base font-semibold text-white mb-4">${playlistId ? "Playlist Düzenle" : "Yeni Playlist"}</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Playlist Adı</label>
+          <input id="pl-name" type="text" maxlength="100" value="${esc(existing?.name || "")}" placeholder="Playlist adı"
+            class="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-600">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Firma</label>
+          <select id="pl-firm" class="w-full bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2">
+            ${firmsOptions(existing?.firmId || "")}
+          </select>
+        </div>
+        <div id="pl-videos-wrap" class="${existing?.firmId ? "" : "hidden"}">
+          <label class="block text-xs text-gray-400 mb-2">Videolar</label>
+          <div id="pl-video-list" class="max-h-40 overflow-y-auto space-y-1 bg-gray-800 rounded-lg p-2 mb-3"></div>
+          <label class="block text-xs text-gray-400 mb-2">Sıra</label>
+          <div id="pl-order-list" class="space-y-1 max-h-40 overflow-y-auto"></div>
+        </div>
+        <div id="pl-error" class="hidden text-xs text-red-400 bg-red-400/10 rounded p-2"></div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button onclick="closeModal()" class="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 rounded-lg">İptal</button>
+          <button id="pl-save" class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg">Kaydet</button>
+        </div>
+      </div>
+    `);
+
+    let orderedVideoIds = (existing?.items || [])
+      .sort((a, b) => a.order - b.order)
+      .map(i => i.videoId);
+
+    let videosForFirm = [];
+
+    async function loadVideosForFirm(firmId) {
+      const snap = await getDocs(query(collection(db, "videos"), where("firmId", "==", firmId)));
+      videosForFirm = snap.docs.map(d => ({ id: d.id, title: d.data().title }));
+      renderVideoCheckboxes();
+      renderOrderList();
+    }
+
+    function renderVideoCheckboxes() {
+      const container = document.getElementById("pl-video-list");
+      if (!container) return;
+      container.innerHTML = "";
+      videosForFirm.forEach(v => {
+        const isChecked = orderedVideoIds.includes(v.id);
+        const label = document.createElement("label");
+        label.className = "flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700 cursor-pointer";
+        label.innerHTML = `
+          <input type="checkbox" value="${esc(v.id)}" ${isChecked ? "checked" : ""} class="accent-blue-500">
+          <span class="text-sm text-gray-300">${esc(v.title)}</span>
+        `;
+        label.querySelector("input").addEventListener("change", e => {
+          if (e.target.checked) {
+            if (!orderedVideoIds.includes(v.id)) orderedVideoIds.push(v.id);
+          } else {
+            orderedVideoIds = orderedVideoIds.filter(id => id !== v.id);
+          }
+          renderOrderList();
+        });
+        container.appendChild(label);
+      });
+    }
+
+    function renderOrderList() {
+      const container = document.getElementById("pl-order-list");
+      if (!container) return;
+      container.innerHTML = "";
+      orderedVideoIds.forEach((vId, idx) => {
+        const v = videosForFirm.find(x => x.id === vId);
+        const title = v?.title || vId;
+        const row = document.createElement("div");
+        row.className = "flex items-center gap-2 bg-gray-800 border border-gray-700 rounded px-3 py-2";
+        row.innerHTML = `
+          <span class="text-xs text-gray-500 w-4">${idx + 1}</span>
+          <span class="flex-1 text-sm text-gray-200 truncate">${esc(title)}</span>
+          <div class="flex gap-1">
+            <button class="btn-up w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs flex items-center justify-center ${idx === 0 ? "opacity-30 cursor-not-allowed" : ""}" data-idx="${idx}">↑</button>
+            <button class="btn-dn w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs flex items-center justify-center ${idx === orderedVideoIds.length - 1 ? "opacity-30 cursor-not-allowed" : ""}" data-idx="${idx}">↓</button>
+            <button class="btn-rm w-6 h-6 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs flex items-center justify-center" data-idx="${idx}">✕</button>
+          </div>
+        `;
+        row.querySelector(".btn-up").addEventListener("click", () => {
+          if (idx === 0) return;
+          [orderedVideoIds[idx - 1], orderedVideoIds[idx]] = [orderedVideoIds[idx], orderedVideoIds[idx - 1]];
+          renderOrderList();
+        });
+        row.querySelector(".btn-dn").addEventListener("click", () => {
+          if (idx === orderedVideoIds.length - 1) return;
+          [orderedVideoIds[idx], orderedVideoIds[idx + 1]] = [orderedVideoIds[idx + 1], orderedVideoIds[idx]];
+          renderOrderList();
+        });
+        row.querySelector(".btn-rm").addEventListener("click", () => {
+          orderedVideoIds.splice(idx, 1);
+          renderVideoCheckboxes();
+          renderOrderList();
+        });
+        container.appendChild(row);
+      });
+    }
+
+    document.getElementById("pl-firm").addEventListener("change", async (e) => {
+      const firmId = e.target.value;
+      const wrap = document.getElementById("pl-videos-wrap");
+      if (!firmId) { wrap?.classList.add("hidden"); return; }
+      wrap?.classList.remove("hidden");
+      orderedVideoIds = [];
+      await loadVideosForFirm(firmId);
+    });
+
+    if (existing?.firmId) {
+      await loadVideosForFirm(existing.firmId);
+    }
+
+    document.getElementById("pl-save").addEventListener("click", async () => {
+      const name   = document.getElementById("pl-name").value.trim();
+      const firmId = document.getElementById("pl-firm").value;
+      const errEl  = document.getElementById("pl-error");
+      if (!name)   { errEl.textContent = "Playlist adı girin."; errEl.classList.remove("hidden"); return; }
+      if (!firmId) { errEl.textContent = "Firma seçin.";        errEl.classList.remove("hidden"); return; }
+      errEl.classList.add("hidden");
+      const items = orderedVideoIds.map((vId, i) => ({ videoId: vId, order: i, durationOverride: null }));
+      const btn = document.getElementById("pl-save");
+      btn.disabled = true; btn.textContent = "Kaydediliyor...";
+      try {
+        if (playlistId) {
+          await updateDoc(doc(db, "playlists", playlistId), { name, firmId, items, updatedAt: serverTimestamp() });
+          showToast("Playlist güncellendi");
+        } else {
+          await addDoc(collection(db, "playlists"), { name, firmId, items, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+          showToast("Playlist oluşturuldu");
+        }
+        closeModal();
+        loadPlaylists();
+      } catch (e) {
+        errEl.textContent = e.message;
+        errEl.classList.remove("hidden");
+        btn.disabled = false; btn.textContent = "Kaydet";
+      }
+    });
+  }
+
+  unsubscribers.playlists = null;
+  loadPlaylists();
+}
 function initSettings()  { document.getElementById("page-settings").innerHTML  = '<p class="text-gray-500 text-sm">Yükleniyor...</p>'; }

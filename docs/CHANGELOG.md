@@ -6,6 +6,18 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [1.2.6] — 2026-04-06
+
+### Eklendi
+- `initPlaylists()` tam implementasyonu: tablo listesi, "Yeni Playlist" butonu, düzenle/sil işlemleri
+- Playlist oluştur/düzenle modalı: ad, firma seçimi, video checkbox listesi, ↑↓ sıralama ve ✕ kaldırma
+- Firma seçilince o firmaya ait videolar Firestore'dan dinamik yüklenir
+- Silme öncesi ekran bağımlılık kontrolü: `screens` koleksiyonunda `playlistId` ile sorgu; kullanımdaysa uyarılı confirm
+- `items` formatı: `[{ videoId, order, durationOverride: null }]` — CLAUDE.md şemasına uygun
+- `unsubscribers.playlists = null` — getDocs tabanlı sayfa, onSnapshot listener gerektirmez
+
+---
+
 ## [1.2.5] — 2026-04-06
 
 ### Eklendi
