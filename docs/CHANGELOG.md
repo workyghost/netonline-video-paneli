@@ -6,6 +6,52 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [1.2.1] — 2026-04-06
+
+### Eklendi
+- `firebase-config.js`'e `updatePassword`, `reauthenticateWithCredential`, `EmailAuthProvider` export edildi (Ayarlar sayfası şifre değiştirme için)
+
+---
+
+## [1.2.0] — 2026-04-06
+
+### Eklendi
+- Her TV ekranı Firestore `screens` koleksiyonuna kendi kimliğiyle kayıt oluyor
+- Ekran kayıt akışı: firma seç + ekran adı + konum + yön → Firestore'a yaz → screenId localStorage'a kaydet
+- Heartbeat: her 60 saniyede `lastSeen` + `currentVideoId` + `currentVideoTitle` güncelleniyor
+- `beforeunload`: sayfa kapanırken ekran `status: "offline"` yapılıyor
+- Playlist modu: ekrana playlist atanınca `onSnapshot` ile sıralı video oynatılıyor
+- Hatalı video URL: 3 saniye bekle → sonraki videoya geç
+- 3 üst üste hata: "İçerik yüklenemiyor" mesajı + 5 dakika sonra retry
+
+### Değiştirildi
+- 5 dakikalık polling (`setInterval` + `getDocs`) tamamen kaldırıldı; yerine `onSnapshot` realtime listener
+- Ekran sıfırlama (dişli ikon): Firestore kaydı silinmiyor, sadece `status: "offline"` + `location.reload()`
+- Setup formu: firma + ekran adı + konum + yön (radio) → "Ekranı Kaydet" butonu
+
+### Düzeltildi
+- Sayfa yenilenince setup ekranı gelme sorunu: `localStorage`'daki `screenId` Firestore'da doğrulanıyor
+
+---
+
+## [1.1.0] — 2026-04-06
+
+### Eklendi
+- `screens` koleksiyonu Firestore şemasına eklendi (seed: 2 örnek ekran)
+- `playlists` koleksiyonu Firestore şemasına eklendi (seed: 1 örnek playlist)
+- Player'a Firebase Anonymous Auth eklendi — Firestore erişimi auth sonrası başlıyor
+- Auth başarısız olursa ekranda "Bağlantı hatası, yeniden deneniyor..." gösterilip 30 saniyede retry yapılıyor
+
+### Değiştirildi
+- Firma listesi zaten Firestore'dan dinamik çekiliyordu; hard-coded liste bulunmadığı doğrulandı
+
+### Güvenlik
+- Firestore okuma kuralları: herkese açıktan (`allow read: if true`) anonim auth gerektirene güncellendi
+- Storage okuma kuralları: auth zorunlu hale getirildi
+- `screens` ve `playlists` koleksiyonları için Firestore kuralları eklendi
+
+---
+
 ## [1.0.0] — 2026-04-03
 
 İlk kararlı sürüm. Temel video yönetim paneli ve TV oynatıcı tamamlandı.
