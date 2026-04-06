@@ -1151,7 +1151,7 @@ function initSettings() {
         <input class="firm-name-input flex-1 bg-transparent border-0 text-gray-200 text-sm px-1 py-0.5 rounded focus:bg-gray-800 focus:border focus:border-gray-700 outline-none"
           value="${esc(d.data().name)}" data-id="${esc(d.id)}" data-original="${esc(d.data().name)}" maxlength="100">
         <button class="btn-save-firm hidden px-2 py-1 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded" data-id="${esc(d.id)}">Kaydet</button>
-        <button class="btn-delete-firm px-2 py-1 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded" data-id="${esc(d.id)}" data-name="${d.data().name.replace(/"/g, '&quot;')}">Sil</button>
+        <button class="btn-delete-firm px-2 py-1 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded" data-id="${esc(d.id)}" data-name="${esc(d.data().name)}">Sil</button>
       `;
       container.appendChild(row);
     });
