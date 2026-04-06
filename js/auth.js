@@ -2,8 +2,7 @@
 import {
   auth,
   onAuthStateChanged,
-  signInWithEmailAndPassword,
-  seedFirms
+  signInWithEmailAndPassword
 } from "./firebase-config.js";
 
 // DOM elementleri
@@ -65,8 +64,6 @@ loginForm.addEventListener("submit", async (e) => {
 
   try {
     await signInWithEmailAndPassword(auth, email, password);
-    // Başarılı giriş — firma seed kontrolü yap
-    await seedFirms();
     // onAuthStateChanged zaten dashboard'a yönlendirecek
   } catch (error) {
     showError(getErrorMessage(error.code));

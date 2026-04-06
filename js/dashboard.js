@@ -909,7 +909,7 @@ function initPlaylists() {
           <td class="px-4 py-3 text-gray-400">${(p.items || []).length}</td>
           <td class="px-4 py-3 flex gap-2">
             <button class="btn-edit-pl px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded" data-id="${esc(d.id)}">Düzenle</button>
-            <button class="btn-delete-pl px-2 py-1 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded" data-id="${esc(d.id)}" data-name="${esc(p.name)}" data-raw-name="${p.name.replace(/"/g, '&quot;')}">Sil</button>
+            <button class="btn-delete-pl px-2 py-1 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded" data-id="${esc(d.id)}" data-name="${esc(p.name)}">Sil</button>
           </td>
         `;
         tbody.appendChild(tr);
@@ -928,7 +928,7 @@ function initPlaylists() {
           if (!screensSnap.empty) {
             if (!confirm(`Bu playlist ${screensSnap.size} ekranda kullanılıyor. Yine de silmek istiyor musunuz?`)) return;
           } else {
-            if (!confirm(`"${btn.dataset.rawName}" silinecek. Emin misiniz?`)) return;
+            if (!confirm(`"${btn.dataset.name}" silinecek. Emin misiniz?`)) return;
           }
           try {
             await deleteDoc(doc(db, "playlists", btn.dataset.id));

@@ -38,25 +38,6 @@ if (USE_EMULATORS) {
   connectFirestoreEmulator(playerDb, "127.0.0.1", 8080);
 }
 
-async function seedFirms() {
-  const firmNames = ["Nethouse", "Kıbrısonline", "Broadmax", "Multimax"];
-  const firmsRef = collection(db, "firms");
-  const snapshot = await getDocs(firmsRef);
-
-  if (snapshot.empty) {
-    for (const name of firmNames) {
-      const firmDoc = doc(firmsRef);
-      await setDoc(firmDoc, {
-        name: name,
-        createdAt: serverTimestamp()
-      });
-    }
-    console.log("Firmalar başarıyla eklendi.");
-  } else {
-    console.log("Firmalar zaten mevcut, seed atlandı.");
-  }
-}
-
 export {
   auth, db, storage,
   playerAuth, playerDb,
@@ -64,6 +45,5 @@ export {
   updatePassword, reauthenticateWithCredential, EmailAuthProvider,
   collection, doc, addDoc, getDoc, getDocs, setDoc, deleteDoc, updateDoc,
   query, where, orderBy, onSnapshot, serverTimestamp, enableNetwork, disableNetwork,
-  ref, uploadBytesResumable, getDownloadURL, deleteObject,
-  seedFirms
+  ref, uploadBytesResumable, getDownloadURL, deleteObject
 };

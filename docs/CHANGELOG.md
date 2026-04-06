@@ -6,6 +6,20 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.0.3] — 2026-04-06
+
+### Güvenlik
+- **Firestore rules**: anonim kullanıcılar (player) artık yalnızca kendi heartbeat alanlarını (`lastSeen`, `status`, `currentVideoId`, `currentVideoTitle`) güncelleyebiliyor; başka ekranların `playlistId`, `firmId`, `name` alanlarını değiştiremez
+- **CSP header**: tüm sayfalara `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options: DENY` eklendi
+- `seedFirms()` login akışından kaldırıldı — her girişte gereksiz Firestore okuma yapıyor ve hard-coded firma adları içeriyordu
+- `firebase.json` ignore: `*.mjs` dosyaları artık deploy'a gitmiyor
+
+### Düzeltildi
+- `data-raw-name` özel kaçış yöntemi kaldırıldı; `esc()` tutarlı olarak kullanılıyor
+- `videoUrl` → `fileUrl`: CLAUDE.md şeması gerçek kodla hizalandı
+
+---
+
 ## [2.0.2] — 2026-04-06
 
 ### Değiştirildi
