@@ -6,6 +6,29 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.0.0] — 2026-04-06
+
+### Eklendi
+- Sidebar navigasyonlu modern SPA dashboard (5 sayfa, JS tab switching, sayfa yenileme yok)
+- Genel Bakış: realtime metrik kartları (Toplam/Çevrimiçi Ekran, Toplam/Aktif Video) + ekran durumu tablosu
+- Ekranlar sayfası: playlist atama, düzenleme, silme, dashboard'dan yeni ekran ekleme
+- Playlist yönetimi: oluştur, düzenle, ↑↓ sıralama, ekrana ata, bağımlılık kontrolü
+- Ayarlar: dinamik firma CRUD (bağımlılık kontrolü ile) + şifre değiştirme
+- Toast notification sistemi (success/error/info, 3.5sn auto-remove)
+- Modal sistemi (overlay click ile kapatma, upload sırasında kilit)
+
+### Değiştirildi
+- Dashboard tek sayfa yapısından SPA mimarisine geçildi
+- Video upload formu sabit görünümden modal'a taşındı
+- Genel Bakış ve Ekranlar sayfaları onSnapshot realtime'a geçildi
+- Sayfa geçişlerinde önceki onSnapshot listener'lar temizleniyor (bellek sızıntısı yok)
+
+### Kaldırıldı
+- Eski header+main tek sayfa dashboard layout
+- css/style.css dashboard bağımlılığı (player.html hâlâ kullanıyor)
+
+---
+
 ## [1.2.7] — 2026-04-06
 
 ### Eklendi
