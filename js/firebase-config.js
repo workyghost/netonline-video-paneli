@@ -1,7 +1,7 @@
 // js/firebase-config.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 import { getAuth, connectAuthEmulator, onAuthStateChanged, signInWithEmailAndPassword, signInAnonymously, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
-import { getFirestore, connectFirestoreEmulator, collection, doc, addDoc, getDoc, getDocs, setDoc, deleteDoc, updateDoc, query, where, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+import { getFirestore, connectFirestoreEmulator, collection, doc, addDoc, getDoc, getDocs, setDoc, deleteDoc, updateDoc, query, where, orderBy, onSnapshot, serverTimestamp, enableNetwork, disableNetwork } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 import { getStorage, connectStorageEmulator, ref, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
 
 const firebaseConfig = {
@@ -63,7 +63,7 @@ export {
   onAuthStateChanged, signInWithEmailAndPassword, signInAnonymously, signOut,
   updatePassword, reauthenticateWithCredential, EmailAuthProvider,
   collection, doc, addDoc, getDoc, getDocs, setDoc, deleteDoc, updateDoc,
-  query, where, orderBy, onSnapshot, serverTimestamp,
+  query, where, orderBy, onSnapshot, serverTimestamp, enableNetwork, disableNetwork,
   ref, uploadBytesResumable, getDownloadURL, deleteObject,
   seedFirms
 };

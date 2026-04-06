@@ -1,5 +1,9 @@
 // seed-emulator.mjs — Emulator'a admin kullanıcı ve firma verisi ekler
 // Kullanım: node seed-emulator.mjs
+//
+// ⚠️  Bu script SADECE lokal geliştirme içindir.
+//    firebase emulators:start sonrası çalıştır: node seed-emulator.mjs
+//    Production'da ÇALIŞTIRMA.
 
 const AUTH_URL = "http://127.0.0.1:9099";
 const FIRESTORE_URL = "http://127.0.0.1:8080";
@@ -55,9 +59,16 @@ async function seedFirms(idToken) {
 
   if (checkData.documents && checkData.documents.length > 0) {
     console.log("Firmalar zaten mevcut, seed atlandı.");
-    return;
+    // Return existing firm IDs
+    const allRes = await fetch(
+      `${FIRESTORE_URL}/v1/projects/${PROJECT_ID}/databases/(default)/documents/firms`,
+      { headers: { "Authorization": `Bearer ${idToken}` } }
+    );
+    const allData = await allRes.json();
+    return (allData.documents || []).map(d => d.name.split("/").pop());
   }
 
+  const firmIds = [];
   for (const name of firms) {
     const res = await fetch(
       `${FIRESTORE_URL}/v1/projects/${PROJECT_ID}/databases/(default)/documents/firms`,
@@ -77,10 +88,126 @@ async function seedFirms(idToken) {
     );
 
     if (res.ok) {
-      console.log(`  Firma eklendi: ${name}`);
+      const data = await res.json();
+      const firmId = data.name.split("/").pop();
+      firmIds.push(firmId);
+      console.log(`  Firma eklendi: ${name} (${firmId})`);
     } else {
       console.error(`  Firma eklenemedi: ${name}`, await res.text());
     }
+  }
+  return firmIds;
+}
+
+async function seedScreens(idToken, firmIds) {
+  // Check if screens already exist
+  const checkRes = await fetch(
+    `${FIRESTORE_URL}/v1/projects/${PROJECT_ID}/databases/(default)/documents/screens?pageSize=1`,
+    { headers: { "Authorization": `Bearer ${idToken}` } }
+  );
+  const checkData = await checkRes.json();
+
+  if (checkData.documents && checkData.documents.length > 0) {
+    console.log("Ekranlar zaten mevcut, seed atlandı.");
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const screens = [
+    {
+      firmId: firmIds[0],
+      name: "A Şubesi - Giriş TV",
+      location: "İstanbul, Kadıköy",
+      orientation: "horizontal",
+      status: "offline",
+      currentVideoId: null,
+      currentVideoTitle: null,
+      playlistId: null,
+    },
+    {
+      firmId: firmIds[1] || firmIds[0],
+      name: "B Şubesi - Lobi TV",
+      location: "Ankara, Çankaya",
+      orientation: "vertical",
+      status: "offline",
+      currentVideoId: null,
+      currentVideoTitle: null,
+      playlistId: null,
+    }
+  ];
+
+  for (const screen of screens) {
+    const res = await fetch(
+      `${FIRESTORE_URL}/v1/projects/${PROJECT_ID}/databases/(default)/documents/screens`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          fields: {
+            firmId: { stringValue: screen.firmId },
+            name: { stringValue: screen.name },
+            location: { stringValue: screen.location },
+            orientation: { stringValue: screen.orientation },
+            status: { stringValue: screen.status },
+            lastSeen: { timestampValue: now },
+            currentVideoId: { nullValue: null },
+            currentVideoTitle: { nullValue: null },
+            playlistId: { nullValue: null },
+            registeredAt: { timestampValue: now }
+          }
+        })
+      }
+    );
+
+    if (res.ok) {
+      console.log(`  Ekran eklendi: ${screen.name}`);
+    } else {
+      console.error(`  Ekran eklenemedi: ${screen.name}`, await res.text());
+    }
+  }
+}
+
+async function seedPlaylists(idToken, firmIds) {
+  // Check if playlists already exist
+  const checkRes = await fetch(
+    `${FIRESTORE_URL}/v1/projects/${PROJECT_ID}/databases/(default)/documents/playlists?pageSize=1`,
+    { headers: { "Authorization": `Bearer ${idToken}` } }
+  );
+  const checkData = await checkRes.json();
+
+  if (checkData.documents && checkData.documents.length > 0) {
+    console.log("Playlist'ler zaten mevcut, seed atlandı.");
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const res = await fetch(
+    `${FIRESTORE_URL}/v1/projects/${PROJECT_ID}/databases/(default)/documents/playlists`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${idToken}`
+      },
+      body: JSON.stringify({
+        fields: {
+          firmId: { stringValue: firmIds[0] },
+          name: { stringValue: "Örnek Playlist" },
+          items: { arrayValue: { values: [] } },
+          createdAt: { timestampValue: now },
+          updatedAt: { timestampValue: now }
+        }
+      })
+    }
+  );
+
+  if (res.ok) {
+    console.log("  Playlist eklendi: Örnek Playlist");
+  } else {
+    console.error("  Playlist eklenemedi:", await res.text());
   }
 }
 
@@ -99,7 +226,10 @@ async function main() {
 
     const idToken = await createUser();
     console.log("");
-    await seedFirms(idToken);
+    const firmIds = await seedFirms(idToken);
+    console.log("");
+    await seedScreens(idToken, firmIds);
+    await seedPlaylists(idToken, firmIds);
     console.log("\nSeed tamamlandı!");
     console.log("\nGiriş bilgileri:");
     console.log("  URL:    http://127.0.0.1:5000");

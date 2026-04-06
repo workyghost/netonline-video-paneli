@@ -4,7 +4,7 @@ import {
   signInAnonymously,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, onSnapshot,
-  serverTimestamp
+  serverTimestamp, enableNetwork, disableNetwork
 } from "./firebase-config.js";
 
 // ========== DOM REFS ==========
@@ -241,6 +241,10 @@ mainVideo.addEventListener("ended", () => {
   playNext();
 });
 
+mainVideo.addEventListener("playing", () => {
+  consecutiveErrors = 0; // Başarılı oynatmada hata sayacını sıfırla
+});
+
 // ========== HATA DAYANIKLILIĞI ==========
 mainVideo.addEventListener("error", () => {
   consecutiveErrors++;
@@ -355,6 +359,11 @@ function cleanupAndShowSetup() {
   hideContentError();
   showSetupScreen();
 }
+
+// ========== OFFLINE / ONLINE NETWORK YÖNETİMİ ==========
+// İnternet kesilince Firestore offline cache kullanır — onSnapshot'lar son veriyle çalışmaya devam eder.
+window.addEventListener("online",  () => enableNetwork(db).catch(() => {}));
+window.addEventListener("offline", () => disableNetwork(db).catch(() => {}));
 
 // ========== INIT ==========
 async function init() {

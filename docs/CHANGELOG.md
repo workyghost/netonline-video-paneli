@@ -6,6 +6,22 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.0.2] — 2026-04-06
+
+### Değiştirildi
+- `firebase-config.js`: `USE_EMULATORS` hostname'e göre otomatik belirleniyor (localhost → emülatör, diğer → production)
+- `firebase.json`: hosting ignore listesi genişletildi, JS/CSS cache + HTML no-cache header'ları eklendi
+- Player `playing` event'i artık ardışık hata sayacını sıfırlıyor
+
+### Güvenlik
+- `player.html` ve `dashboard.html`'e `noindex, nofollow` meta tag'i eklendi
+- Dashboard auth guard zaten aktifti: anonim kullanıcılar login'e yönlendiriliyor
+
+### Düzeltildi
+- Player: internet bağlantısı kesilince `disableNetwork(db)` ile Firestore offline cache'e geçiliyor, geri gelince `enableNetwork(db)` ile yeniden bağlanıyor
+
+---
+
 ## [2.0.1] — 2026-04-06
 
 ### Düzeltildi
