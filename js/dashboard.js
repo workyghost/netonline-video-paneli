@@ -240,6 +240,7 @@ function initOverview() {
   unsubscribers.overview = () => { unsubScreens(); unsubVideos(); };
 }
 function initScreens() {
+  let generation = 0;
   const el = document.getElementById("page-screens");
   el.innerHTML = `
     <div class="flex items-center justify-between mb-6">
@@ -269,7 +270,9 @@ function initScreens() {
   document.getElementById("btn-add-screen").addEventListener("click", () => openAddScreenModal());
 
   const unsubScreens = onSnapshot(collection(db, "screens"), async (snap) => {
+    const myGen = ++generation;
     const playlistsSnap = await getDocs(collection(db, "playlists"));
+    if (myGen !== generation) return;
     const playlists = playlistsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     const tbody = document.getElementById("screens-tbody");
