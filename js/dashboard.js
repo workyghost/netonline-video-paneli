@@ -239,7 +239,244 @@ function initOverview() {
 
   unsubscribers.overview = () => { unsubScreens(); unsubVideos(); };
 }
-function initScreens()   { document.getElementById("page-screens").innerHTML   = '<p class="text-gray-500 text-sm">Yükleniyor...</p>'; }
+function initScreens() {
+  const el = document.getElementById("page-screens");
+  el.innerHTML = `
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-lg font-semibold text-white">Ekranlar</h2>
+      <button id="btn-add-screen" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors">
+        + Yeni Ekran Ekle
+      </button>
+    </div>
+    <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr class="border-b border-gray-800">
+            <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Ekran Adı</th>
+            <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Firma</th>
+            <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Konum</th>
+            <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Yön</th>
+            <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Durum</th>
+            <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Playlist</th>
+            <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">İşlemler</th>
+          </tr></thead>
+          <tbody id="screens-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("btn-add-screen").addEventListener("click", () => openAddScreenModal());
+
+  const unsubScreens = onSnapshot(collection(db, "screens"), async (snap) => {
+    const playlistsSnap = await getDocs(collection(db, "playlists"));
+    const playlists = playlistsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    const tbody = document.getElementById("screens-tbody");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    const now = Date.now();
+    const TWO_MIN = 2 * 60 * 1000;
+
+    snap.forEach(d => {
+      const s = d.data();
+      const screenId = d.id;
+      const lastMs = s.lastSeen?.toDate?.().getTime() ?? 0;
+      const isOnline = (now - lastMs) < TWO_MIN;
+
+      let plOpts = '<option value="">Otomatik (Playlist Yok)</option>';
+      playlists.forEach(p => {
+        plOpts += `<option value="${esc(p.id)}" ${s.playlistId === p.id ? "selected" : ""}>${esc(p.name)}</option>`;
+      });
+
+      const tr = document.createElement("tr");
+      tr.className = "border-b border-gray-800/50 hover:bg-gray-800/20";
+      tr.innerHTML = `
+        <td class="px-4 py-3 text-gray-200 font-medium">${esc(s.name)}</td>
+        <td class="px-4 py-3 text-gray-400">${esc(firmsMap.get(s.firmId) || "—")}</td>
+        <td class="px-4 py-3 text-gray-400 text-xs">${esc(s.location || "—")}</td>
+        <td class="px-4 py-3 text-gray-400 text-xs">${esc(ORIENTATION_LABEL[s.orientation] || s.orientation)}</td>
+        <td class="px-4 py-3">
+          <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium
+            ${isOnline ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}">
+            <span class="w-1.5 h-1.5 rounded-full ${isOnline ? "bg-green-400" : "bg-red-400"}"></span>
+            ${isOnline ? "Çevrimiçi" : "Çevrimdışı"}
+          </span>
+        </td>
+        <td class="px-4 py-3">
+          <select class="playlist-select bg-gray-800 border border-gray-700 text-gray-300 text-xs rounded px-2 py-1"
+            data-screen-id="${esc(screenId)}">${plOpts}</select>
+        </td>
+        <td class="px-4 py-3 flex gap-2">
+          <button class="btn-edit-screen px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+            data-id="${esc(screenId)}" data-name="${esc(s.name)}" data-location="${esc(s.location||"")}" data-orientation="${esc(s.orientation)}" data-firm="${esc(s.firmId)}">
+            Düzenle
+          </button>
+          <button class="btn-delete-screen px-2 py-1 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded transition-colors"
+            data-id="${esc(screenId)}" data-name="${esc(s.name)}">
+            Sil
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll(".playlist-select").forEach(sel => {
+      sel.addEventListener("change", async (e) => {
+        const sid = e.target.dataset.screenId;
+        const val = e.target.value || null;
+        try {
+          await updateDoc(doc(db, "screens", sid), { playlistId: val });
+          showToast("Playlist güncellendi", "success");
+        } catch (err) {
+          showToast("Güncellenemedi: " + err.message, "error");
+        }
+      });
+    });
+
+    tbody.querySelectorAll(".btn-edit-screen").forEach(btn => {
+      btn.addEventListener("click", () => openEditScreenModal(btn.dataset));
+    });
+
+    tbody.querySelectorAll(".btn-delete-screen").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!confirm(`"${btn.dataset.name}" ekranını silmek istediğinizden emin misiniz?`)) return;
+        try {
+          await deleteDoc(doc(db, "screens", btn.dataset.id));
+          showToast("Ekran silindi");
+        } catch (err) {
+          showToast("Silinemedi: " + err.message, "error");
+        }
+      });
+    });
+  });
+
+  unsubscribers.screens = unsubScreens;
+}
+
+function openAddScreenModal() {
+  openModal(`
+    <h3 class="text-base font-semibold text-white mb-4">Yeni Ekran Ekle</h3>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Firma</label>
+        <select id="ms-firm" class="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
+          ${firmsOptions()}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Ekran Adı</label>
+        <input id="ms-name" type="text" maxlength="100" placeholder="Kadıköy Şubesi - Giriş TV"
+          class="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-600">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Konum</label>
+        <input id="ms-location" type="text" maxlength="100" placeholder="İstanbul, Kadıköy"
+          class="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-600">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-2">Yön</label>
+        <div class="flex gap-4">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="ms-orientation" value="horizontal" class="accent-blue-500"> <span class="text-sm text-gray-300">Yatay</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="ms-orientation" value="vertical" class="accent-blue-500"> <span class="text-sm text-gray-300">Dikey</span>
+          </label>
+        </div>
+      </div>
+      <div id="ms-error" class="hidden text-xs text-red-400 bg-red-400/10 rounded p-2"></div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeModal()" class="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 rounded-lg transition-colors">İptal</button>
+        <button id="ms-save" class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors">Kaydet</button>
+      </div>
+    </div>
+  `);
+
+  document.getElementById("ms-save").addEventListener("click", async () => {
+    const firmId      = document.getElementById("ms-firm").value;
+    const name        = document.getElementById("ms-name").value.trim();
+    const location    = document.getElementById("ms-location").value.trim();
+    const orientation = document.querySelector('input[name="ms-orientation"]:checked')?.value;
+    const errEl       = document.getElementById("ms-error");
+
+    if (!firmId || !name || !location || !orientation) {
+      errEl.textContent = "Tüm alanları doldurun.";
+      errEl.classList.remove("hidden");
+      return;
+    }
+    errEl.classList.add("hidden");
+    const btn = document.getElementById("ms-save");
+    btn.disabled = true; btn.textContent = "Kaydediliyor...";
+
+    try {
+      await addDoc(collection(db, "screens"), {
+        firmId, name, location, orientation,
+        status: "offline",
+        lastSeen: serverTimestamp(),
+        currentVideoId: null,
+        currentVideoTitle: null,
+        playlistId: null,
+        registeredAt: serverTimestamp()
+      });
+      closeModal();
+      showToast("Ekran eklendi");
+    } catch (e) {
+      errEl.textContent = e.message;
+      errEl.classList.remove("hidden");
+      btn.disabled = false; btn.textContent = "Kaydet";
+    }
+  });
+}
+
+function openEditScreenModal({ id, name, location, orientation, firm }) {
+  openModal(`
+    <h3 class="text-base font-semibold text-white mb-4">Ekranı Düzenle</h3>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Ekran Adı</label>
+        <input id="es-name" type="text" maxlength="100" value="${esc(name)}"
+          class="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Konum</label>
+        <input id="es-location" type="text" maxlength="100" value="${esc(location)}"
+          class="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-2">Yön</label>
+        <div class="flex gap-4">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="es-orientation" value="horizontal" ${orientation === "horizontal" ? "checked" : ""} class="accent-blue-500">
+            <span class="text-sm text-gray-300">Yatay</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="es-orientation" value="vertical" ${orientation === "vertical" ? "checked" : ""} class="accent-blue-500">
+            <span class="text-sm text-gray-300">Dikey</span>
+          </label>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeModal()" class="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 rounded-lg">İptal</button>
+        <button id="es-save" class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg">Kaydet</button>
+      </div>
+    </div>
+  `);
+
+  document.getElementById("es-save").addEventListener("click", async () => {
+    const newName     = document.getElementById("es-name").value.trim();
+    const newLocation = document.getElementById("es-location").value.trim();
+    const newOrient   = document.querySelector('input[name="es-orientation"]:checked')?.value;
+    if (!newName || !newLocation || !newOrient) return;
+    try {
+      await updateDoc(doc(db, "screens", id), { name: newName, location: newLocation, orientation: newOrient });
+      closeModal();
+      showToast("Ekran güncellendi");
+    } catch (e) {
+      showToast(e.message, "error");
+    }
+  });
+}
 function initContents()  { document.getElementById("page-contents").innerHTML  = '<p class="text-gray-500 text-sm">Yükleniyor...</p>'; }
 function initPlaylists() { document.getElementById("page-playlists").innerHTML = '<p class="text-gray-500 text-sm">Yükleniyor...</p>'; }
 function initSettings()  { document.getElementById("page-settings").innerHTML  = '<p class="text-gray-500 text-sm">Yükleniyor...</p>'; }

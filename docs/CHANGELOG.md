@@ -6,6 +6,18 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [1.2.4] — 2026-04-06
+
+### Eklendi
+- `initScreens()` implementasyonu: onSnapshot tablosu, playlist atama dropdown'u, düzenle/sil/yeni ekran modalları
+- `openAddScreenModal()`: firma seç, ekran adı, konum, yön alanlarıyla yeni ekran oluşturma; Firestore `screens` koleksiyonuna `addDoc` ile kaydeder
+- `openEditScreenModal()`: ekran adı, konum ve yön güncelleme modalı (firma değiştirilemez)
+- Playlist atama: her satırda inline `<select>` ile `updateDoc` anında kaydeder
+- Silme: confirm dialog + `deleteDoc`; durum badge'i `lastSeen < 2 dk` online kriteri ile yeşil/kırmızı
+- `unsubscribers.screens` listener temizliği
+
+---
+
 ## [1.2.3] — 2026-04-06
 
 ### Eklendi
