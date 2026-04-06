@@ -6,6 +6,20 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.0.4] — 2026-04-06
+
+### Değiştirildi
+- `.gitignore` oluşturuldu: `*.mp4`, `FAZ*.md`, `.claude/`, `.superpowers/`, `*.log` repoya alınmıyor
+- `docs/superpowers/` iç geliştirme dokümanları repodan kaldırıldı
+- `firestore.indexes.json` git takibine alındı (composite index tanımı)
+- `CLAUDE.md` v2.0.3 mimarisine göre tamamen güncellendi
+- `docs/README.md` yeniden yazıldı: güncel mimari, VPS/nginx deployment rehberi, nginx config
+
+### Kaldırıldı
+- `docs/superpowers/plans/` ve `docs/superpowers/specs/` — iç geliştirme dokümanları
+
+---
+
 ## [2.0.3] — 2026-04-06
 
 ### Güvenlik

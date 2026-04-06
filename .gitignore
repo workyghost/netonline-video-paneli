@@ -1,0 +1,30 @@
+# Video dosyaları (test/geliştirme amaçlı, repoya alınmaz)
+*.mp4
+*.avi
+*.mov
+
+# Debug & log
+*.log
+firestore-debug.log
+ui-debug.log
+database-debug.log
+
+# Firebase emülatör verileri
+.firebase/
+firebase-export-*/
+
+# Claude Code yerel ayarları
+.claude/
+
+# Superpowers iç dosyaları
+.superpowers/
+
+# Node (firebase-tools global kullanılıyor ama yine de)
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Geliştirme notları (FAZ prompt dosyaları)
+FAZ*.md
