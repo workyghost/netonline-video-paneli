@@ -3,136 +3,72 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NetOnline Video Paneli — Dashboard</title>
+  <title>NetOnline DS — Yönetim Paneli</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="css/style.css">
+  <script>
+    tailwind.config = { theme: { extend: {} } }
+  </script>
+  <style>
+    .nav-btn.active {
+      background-color: rgb(37 99 235 / 0.15);
+      color: #60a5fa;
+    }
+  </style>
 </head>
-<body class="dashboard-bg text-white min-h-screen">
+<body class="flex h-screen bg-gray-950 text-white overflow-hidden">
 
-  <!-- Header -->
-  <header class="glass-header px-6 py-4 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <div class="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
-        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      </div>
-      <h1 class="text-base font-semibold tracking-tight text-slate-100">NetOnline Video Paneli</h1>
+  <!-- Sidebar -->
+  <aside class="w-56 flex-shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col">
+    <div class="p-4 border-b border-gray-800">
+      <h1 class="text-sm font-semibold text-white">NetOnline DS</h1>
+      <p class="text-xs text-gray-500 mt-0.5">Yönetim Paneli</p>
     </div>
-    <button id="logoutButton" class="px-4 py-1.5 text-sm font-medium text-slate-300 border border-slate-600 hover:border-red-500 hover:text-red-400 rounded-lg transition duration-200">
-      Çıkış Yap
-    </button>
-  </header>
 
-  <main class="max-w-6xl mx-auto p-6 space-y-6">
+    <nav class="flex-1 p-3 space-y-1">
+      <button data-page="overview"  class="nav-btn w-full text-left px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+        Genel Bakış
+      </button>
+      <button data-page="screens"   class="nav-btn w-full text-left px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+        Ekranlar
+      </button>
+      <button data-page="contents"  class="nav-btn w-full text-left px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        İçerikler
+      </button>
+      <button data-page="playlists" class="nav-btn w-full text-left px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h10"/></svg>
+        Playlist'ler
+      </button>
+      <button data-page="settings"  class="nav-btn w-full text-left px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        Ayarlar
+      </button>
+    </nav>
 
-    <!-- Upload Section -->
-    <section class="glass-card rounded-2xl p-6">
-      <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-5">Video Yükle</h2>
+    <div class="p-3 border-t border-gray-800">
+      <p class="text-xs text-gray-400 truncate" id="user-email"></p>
+      <button id="logout-btn" class="mt-2 text-xs text-gray-500 hover:text-red-400 transition-colors">Çıkış Yap</button>
+    </div>
+  </aside>
 
-      <!-- Drop Zone -->
-      <div id="dropZone" class="border-2 border-dashed border-white/10 rounded-xl p-10 text-center cursor-pointer hover:border-blue-500/50 hover:bg-white/5 transition duration-200">
-        <svg class="mx-auto h-10 w-10 text-slate-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-        </svg>
-        <p class="text-slate-300 text-sm">Videoları sürükle veya <span class="text-blue-400 underline underline-offset-2">tıkla</span></p>
-        <p class="text-slate-600 text-xs mt-1">MP4 formatı · Çoklu seçim desteklenir</p>
-        <input type="file" id="fileInput" accept=".mp4,video/mp4" multiple class="hidden">
-      </div>
-
-      <!-- Selected File Name(s) -->
-      <p id="selectedFileName" class="text-sm text-slate-400 mt-2 hidden"></p>
-
-      <!-- Upload Form (hidden until file selected) -->
-      <div id="uploadForm" class="hidden mt-6 space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-          <!-- Video Başlığı (hidden for multi-file) -->
-          <div id="titleContainer">
-            <label for="videoTitle" class="block text-xs font-medium text-slate-400 mb-1.5">Video Başlığı</label>
-            <input type="text" id="videoTitle" placeholder="Video adını girin" maxlength="200"
-              class="glass-input w-full px-4 py-2.5 rounded-lg text-sm">
-          </div>
-
-          <!-- Firma Seçimi -->
-          <div>
-            <label for="firmSelect" class="block text-xs font-medium text-slate-400 mb-1.5">Firma</label>
-            <select id="firmSelect" class="glass-input w-full px-4 py-2.5 rounded-lg text-sm">
-              <option value="">Firma seçin...</option>
-            </select>
-          </div>
-
-          <!-- Yön Etiketi -->
-          <div>
-            <label for="orientationSelect" class="block text-xs font-medium text-slate-400 mb-1.5">Yön Etiketi</label>
-            <select id="orientationSelect" class="glass-input w-full px-4 py-2.5 rounded-lg text-sm">
-              <option value="">Yön seçin...</option>
-              <option value="horizontal">Yatay</option>
-              <option value="vertical">Dikey</option>
-              <option value="both">Ortak</option>
-            </select>
-          </div>
-
-          <!-- Bitiş Tarihi -->
-          <div>
-            <label for="expiryDate" class="block text-xs font-medium text-slate-400 mb-1.5">
-              Bitiş Tarihi <span class="text-slate-600">(opsiyonel)</span>
-            </label>
-            <input type="date" id="expiryDate" class="glass-input w-full px-4 py-2.5 rounded-lg text-sm">
-          </div>
-        </div>
-
-        <!-- Upload Button -->
-        <button id="uploadButton"
-          class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed">
-          Yükle
-        </button>
-      </div>
-
-      <!-- Progress Bar -->
-      <div id="progressContainer" class="hidden mt-5">
-        <div class="flex items-center justify-between mb-2">
-          <span id="progressLabel" class="text-xs text-slate-400">Yükleniyor...</span>
-          <span id="progressText" class="text-xs font-medium text-blue-400">0%</span>
-        </div>
-        <div class="progress-track">
-          <div id="progressBar" class="progress-fill" style="width: 0%"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Video List Section -->
-    <section class="glass-card rounded-2xl p-6">
-      <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-5">Video Listesi</h2>
-
-      <!-- Empty State -->
-      <div id="emptyState" class="text-center py-12 text-slate-600">
-        <svg class="mx-auto h-10 w-10 text-slate-700 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-        </svg>
-        <p class="text-sm">Henüz video yüklenmemiş.</p>
-      </div>
-
-      <!-- Video Table -->
-      <div class="overflow-x-auto hidden" id="videoTableContainer">
-        <table class="video-table w-full text-sm text-left">
-          <thead>
-            <tr>
-              <th>Kapak</th>
-              <th>Video Adı</th>
-              <th>Firma</th>
-              <th>Yön</th>
-              <th>Bitiş</th>
-              <th>Durum</th>
-              <th>İşlem</th>
-            </tr>
-          </thead>
-          <tbody id="videoList"></tbody>
-        </table>
-      </div>
-    </section>
+  <!-- Main content -->
+  <main class="flex-1 overflow-y-auto">
+    <div id="page-overview"  class="page hidden p-6"></div>
+    <div id="page-screens"   class="page hidden p-6"></div>
+    <div id="page-contents"  class="page hidden p-6"></div>
+    <div id="page-playlists" class="page hidden p-6"></div>
+    <div id="page-settings"  class="page hidden p-6"></div>
   </main>
+
+  <!-- Toast -->
+  <div id="toast-container" class="fixed bottom-4 right-4 space-y-2 z-50 pointer-events-none"></div>
+
+  <!-- Modal -->
+  <div id="modal-overlay" class="hidden fixed inset-0 bg-black/60 z-40 flex items-center justify-center p-4">
+    <div id="modal-box" class="bg-gray-900 rounded-xl border border-gray-700 w-full max-w-lg max-h-[90vh] overflow-y-auto p-6"></div>
+  </div>
 
   <script type="module" src="js/dashboard.js"></script>
 </body>
