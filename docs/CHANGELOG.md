@@ -6,6 +6,19 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [1.2.2] — 2026-04-06
+
+### Değiştirildi
+- `js/dashboard.js` tamamen yeniden yazıldı: eski tek-sayfa yapısı kaldırıldı, v2 mimarisine uygun foundation oluşturuldu
+- Auth guard: anonim kullanıcılar da login'e yönlendiriliyor (`user.isAnonymous` kontrolü eklendi)
+- Routing sistemi: `showPage()` ile JS tab switching, sayfa yenileme yok; önceki sayfa listener'ları `unsubscribers` map ile temizleniyor
+- Toast bildirimleri: `alert()` yerine non-blocking `showToast()` (success/error/info)
+- Modal altyapısı: `openModal()` / `closeModal()`, `window.closeModal` global olarak expose edildi (inline onclick için)
+- Yardımcı fonksiyonlar: `esc()`, `timeAgo()`, `formatDate()`, `firmsOptions()`, `ORIENTATION_LABEL` sabiti
+- Sayfa init stub'ları eklendi (overview, screens, contents, playlists, settings) — sonraki task'larda doldurulacak
+
+---
+
 ## [1.2.1] — 2026-04-06
 
 ### Eklendi
