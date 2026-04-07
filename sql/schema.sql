@@ -109,5 +109,26 @@ begin;
 commit;
 alter publication supabase_realtime add table firms, videos, screens, playlists;
 
--- Ensure you create a bucket named 'storage-netonline' 
+-- Ensure you create a bucket named 'digital-signage' 
 -- Enable Public access, and Add storage rules if necessary on the Supabase Dashboard.
+-- Ya da aşağıdaki SQL komutlarını çalıştırarak bucket ve RLS kurallarını oluşturabilirsiniz:
+
+insert into storage.buckets (id, name, public) 
+values ('digital-signage', 'digital-signage', true)
+on conflict (id) do nothing;
+
+create policy "Public read access for digital-signage bucket"
+on storage.objects for select
+using ( bucket_id = 'digital-signage' );
+
+create policy "Authenticated users can upload to digital-signage bucket"
+on storage.objects for insert
+with check ( bucket_id = 'digital-signage' and auth.role() = 'authenticated' );
+
+create policy "Authenticated users can update digital-signage bucket"
+on storage.objects for update
+using ( bucket_id = 'digital-signage' and auth.role() = 'authenticated' );
+
+create policy "Authenticated users can delete from digital-signage bucket"
+on storage.objects for delete
+using ( bucket_id = 'digital-signage' and auth.role() = 'authenticated' );

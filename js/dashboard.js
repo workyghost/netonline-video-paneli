@@ -682,8 +682,8 @@ function initContents() {
         const video = allVideos.find(v => v.id === videoId);
         const fileName = video?.file_name || "";
         if (fileName) {
-          try { await supabase.storage.from("storage-netonline").remove(["videos/" + fileName]); } catch (_) {}
-          try { await supabase.storage.from("storage-netonline").remove(["thumbnails/thumb_" + fileName.replace(/\.mp4$/i, ".jpg")]); } catch (_) {}
+          try { await supabase.storage.from("digital-signage").remove(["videos/" + fileName]); } catch (_) {}
+          try { await supabase.storage.from("digital-signage").remove(["thumbnails/thumb_" + fileName.replace(/\.mp4$/i, ".jpg")]); } catch (_) {}
         }
         try {
           const { error } = await supabase.from("videos").delete().eq("id", videoId);
@@ -854,14 +854,14 @@ function initContents() {
       }, 500);
 
       try {
-        const { error: uploadError } = await supabase.storage.from('storage-netonline').upload("videos/" + fileName, file);
+        const { error: uploadError } = await supabase.storage.from('digital-signage').upload("videos/" + fileName, file);
         clearInterval(progInt);
         if (bar) bar.style.width = "100%";
         if (pctEl) pctEl.textContent = "100%";
 
         if (uploadError) return reject(uploadError);
 
-        const { data: { publicUrl: fileUrl } } = supabase.storage.from('storage-netonline').getPublicUrl("videos/" + fileName);
+        const { data: { publicUrl: fileUrl } } = supabase.storage.from('digital-signage').getPublicUrl("videos/" + fileName);
 
         let thumbnailUrl = "";
         try { thumbnailUrl = await generateThumbnail(file, fileName); } catch (_) {}
@@ -902,9 +902,9 @@ function initContents() {
             URL.revokeObjectURL(objectUrl);
             if (!blob) { reject(new Error("Canvas blob oluşturulamadı")); return; }
             const thumbFileName = "thumb_" + fileName.replace(/\.[^/.]+$/, ".jpg");
-            const { error: tErr } = await supabase.storage.from("storage-netonline").upload("thumbnails/" + thumbFileName, blob);
+            const { error: tErr } = await supabase.storage.from("digital-signage").upload("thumbnails/" + thumbFileName, blob);
             if (tErr) return reject(tErr);
-            const { data: { publicUrl } } = supabase.storage.from("storage-netonline").getPublicUrl("thumbnails/" + thumbFileName);
+            const { data: { publicUrl } } = supabase.storage.from("digital-signage").getPublicUrl("thumbnails/" + thumbFileName);
             resolve(publicUrl);
           }, "image/jpeg", 0.75);
         } catch (e) { URL.revokeObjectURL(objectUrl); reject(e); }

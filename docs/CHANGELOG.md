@@ -6,6 +6,14 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.2.1] — 2026-04-07
+
+### Düzeltildi
+- **Storage Bucket İsimlendirme Uyumsuzluğu**: Şema açıklamalarındaki ve `dashboard.js` içerisindeki `storage-netonline` isimleri, README belgesiyle ve standartlarla tutarlı olarak `digital-signage` şeklinde güncellendi.
+- **Güvenlik / Şema**: `schema.sql` içerisine eksik olan Supabase Storage kova (bucket) oluşturma komutu ve okuma/yazma/silme yetkilerini belirleyen RLS (Row Level Security) kuralları eklendi.
+
+---
+
 ## [2.2.0] — 2026-04-07
 
 ### Değiştirildi
