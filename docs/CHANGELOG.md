@@ -6,6 +6,21 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.1.0] — 2026-04-07
+
+### Eklendi
+- **player.html: URL parametreli link modu** — `player.html?screen=ID` formatında doğrudan ekran linki desteği
+  - URL'de `?screen=` varsa setup ekranı gösterilmez; geçerli ekrana bağlanır, localStorage'a yazılmaz (stateless)
+  - Geçersiz ekran ID'sinde siyah ekranda "Geçersiz ekran linki" mesajı gösterilir
+  - Siyah ekranda büyük ▶ ikonu + "Oynatmak için tıklayın" yazısı; tıklanınca fullscreen açılır ve video başlar
+  - Fullscreen'den çıkılınca (ESC) ▶ overlay tekrar gösterilir
+- **player.html: Kontrol çubuğu** — playerScreen üzerine gelinince beliren, 3 saniye hareketsizlikte kaybolan yarı saydam kontrol çubuğu (48px, z-index yüksek)
+  - Play/Pause, Ses Aç/Kapat, Fullscreen Gir/Çık butonları (SVG ikonlar, durum bazlı)
+- **dashboard.js: Ekranlar sayfasına "Linki Kopyala" butonu** — her ekran satırına `player.html?screen=ID` formatında link panoya kopyalayan buton eklendi
+- **player.html: ES Module optimizasyonları** — `<link rel="modulepreload">` ile `player.js` ve `firebase-config.js` ön yükleme; `<noscript>` fallback mesajı; `upgrade-insecure-requests` CSP meta tag
+
+---
+
 ## [2.0.4] — 2026-04-06
 
 ### Değiştirildi

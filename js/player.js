@@ -18,6 +18,17 @@ const setupError          = document.getElementById("setupError");
 const resetButton         = document.getElementById("resetButton");
 const bgVideo             = document.getElementById("bgVideo");
 const mainVideo           = document.getElementById("mainVideo");
+const linkOverlay         = document.getElementById("linkOverlay");
+const controlBar          = document.getElementById("controlBar");
+const ctrlPlayPause       = document.getElementById("ctrlPlayPause");
+const ctrlMute            = document.getElementById("ctrlMute");
+const ctrlFullscreen      = document.getElementById("ctrlFullscreen");
+const iconPlay            = document.getElementById("iconPlay");
+const iconPause           = document.getElementById("iconPause");
+const iconUnmuted         = document.getElementById("iconUnmuted");
+const iconMuted           = document.getElementById("iconMuted");
+const iconFullscreenEnter = document.getElementById("iconFullscreenEnter");
+const iconFullscreenExit  = document.getElementById("iconFullscreenExit");
 
 // ========== STATE ==========
 let currentScreenId    = null;
@@ -33,6 +44,8 @@ let unsubscribeVideos  = null;
 let currentPlaylistId  = null;
 let currentFirmId      = null;
 let currentOrientation = null;
+let isLinkMode         = false;   // true when ?screen= URL param is used
+let controlBarTimeout  = null;
 
 // ========== SETUP HELPERS ==========
 function showSetupError(msg) {
@@ -360,6 +373,90 @@ function cleanupAndShowSetup() {
   showSetupScreen();
 }
 
+// ========== CONTROL BAR ==========
+function showControlBar() {
+  controlBar.style.opacity = "1";
+  if (controlBarTimeout) clearTimeout(controlBarTimeout);
+  controlBarTimeout = setTimeout(() => { controlBar.style.opacity = "0"; }, 3000);
+}
+
+playerScreen.addEventListener("mousemove", showControlBar);
+playerScreen.addEventListener("mouseenter", showControlBar);
+
+function updatePlayPauseIcon() {
+  if (mainVideo.paused) {
+    iconPlay.classList.remove("hidden");
+    iconPause.classList.add("hidden");
+  } else {
+    iconPlay.classList.add("hidden");
+    iconPause.classList.remove("hidden");
+  }
+}
+
+function updateMuteIcon() {
+  if (mainVideo.muted) {
+    iconUnmuted.classList.add("hidden");
+    iconMuted.classList.remove("hidden");
+  } else {
+    iconUnmuted.classList.remove("hidden");
+    iconMuted.classList.add("hidden");
+  }
+}
+
+function updateFullscreenIcon() {
+  const isFs = !!document.fullscreenElement;
+  iconFullscreenEnter.classList.toggle("hidden", isFs);
+  iconFullscreenExit.classList.toggle("hidden", !isFs);
+}
+
+ctrlPlayPause.addEventListener("click", () => {
+  if (mainVideo.paused) { mainVideo.play().catch(() => {}); bgVideo.play().catch(() => {}); }
+  else                  { mainVideo.pause(); bgVideo.pause(); }
+  updatePlayPauseIcon();
+});
+
+ctrlMute.addEventListener("click", () => {
+  mainVideo.muted = !mainVideo.muted;
+  updateMuteIcon();
+});
+
+ctrlFullscreen.addEventListener("click", () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen().catch(() => {});
+  }
+});
+
+mainVideo.addEventListener("play",  updatePlayPauseIcon);
+mainVideo.addEventListener("pause", updatePlayPauseIcon);
+
+document.addEventListener("fullscreenchange", () => {
+  updateFullscreenIcon();
+  // Link modunda fullscreen'den çıkılınca overlay'i geri göster
+  if (!document.fullscreenElement && isLinkMode) {
+    showLinkOverlay();
+  }
+});
+
+// ========== LINK OVERLAY ==========
+function showLinkOverlay() {
+  mainVideo.pause();
+  bgVideo.pause();
+  linkOverlay.classList.remove("hidden");
+}
+
+function hideLinkOverlay() {
+  linkOverlay.classList.add("hidden");
+}
+
+linkOverlay.addEventListener("click", () => {
+  hideLinkOverlay();
+  document.documentElement.requestFullscreen().catch(() => {});
+  mainVideo.play().catch(() => {});
+  bgVideo.play().catch(() => {});
+});
+
 // ========== OFFLINE / ONLINE NETWORK YÖNETİMİ ==========
 // İnternet kesilince Firestore offline cache kullanır — onSnapshot'lar son veriyle çalışmaya devam eder.
 window.addEventListener("online",  () => enableNetwork(db).catch(() => {}));
@@ -367,6 +464,9 @@ window.addEventListener("offline", () => disableNetwork(db).catch(() => {}));
 
 // ========== INIT ==========
 async function init() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlScreenId = urlParams.get("screen");
+
   const tryAuth = async () => {
     try {
       await signInAnonymously(auth);
@@ -379,23 +479,63 @@ async function init() {
       return;
     }
 
-    const screenId = localStorage.getItem("screenId");
-    if (screenId) {
+    if (urlScreenId) {
+      // LINK MODU: ?screen= parametresi var
+      isLinkMode = true;
       try {
-        const snap = await getDoc(doc(db, "screens", screenId));
-        if (snap.exists()) {
-          startPlayback(screenId);
-        } else {
-          // Ekran Firestore'dan silinmiş
-          localStorage.removeItem("screenId");
-          showSetupScreen();
+        const snap = await getDoc(doc(db, "screens", urlScreenId));
+        if (!snap.exists()) {
+          // Geçersiz ekran ID'si
+          document.body.innerHTML = `
+            <div style="color:white;text-align:center;padding:4rem;background:black;min-height:100vh;display:flex;align-items:center;justify-content:center;">
+              <p style="font-size:1.25rem">Geçersiz ekran linki</p>
+            </div>`;
+          return;
         }
+        // Geçerli ekran — önce overlay göster, localStorage'a yazma
+        setupScreen.classList.add("hidden");
+        playerScreen.classList.remove("hidden");
+        linkOverlay.classList.remove("hidden");
+        startHeartbeat(urlScreenId);
+        // startPlayback'i direkt çağırmak yerine listener'ı kur
+        // ama oynatmayı overlay tıklamasına bırak
+        currentScreenId = urlScreenId;
+        if (unsubscribeScreen) { unsubscribeScreen(); unsubscribeScreen = null; }
+        unsubscribeScreen = onSnapshot(doc(db, "screens", urlScreenId), (screenSnap) => {
+          if (!screenSnap.exists()) return;
+          const screen = screenSnap.data();
+          if (screen.playlistId) {
+            startPlaylistMode(screen.playlistId);
+          } else {
+            startFirmMode(screen.firmId, screen.orientation);
+          }
+        });
       } catch (e) {
-        console.error("Ekran dokümanı alınamadı:", e);
-        showSetupScreen();
+        console.error("Link modu ekran hatası:", e);
+        document.body.innerHTML = `
+          <div style="color:white;text-align:center;padding:4rem;background:black;min-height:100vh;display:flex;align-items:center;justify-content:center;">
+            <p style="font-size:1.25rem">Bağlantı hatası, lütfen sayfayı yenileyin.</p>
+          </div>`;
       }
     } else {
-      showSetupScreen();
+      // NORMAL MOD: localStorage akışı
+      const screenId = localStorage.getItem("screenId");
+      if (screenId) {
+        try {
+          const snap = await getDoc(doc(db, "screens", screenId));
+          if (snap.exists()) {
+            startPlayback(screenId);
+          } else {
+            localStorage.removeItem("screenId");
+            showSetupScreen();
+          }
+        } catch (e) {
+          console.error("Ekran dokümanı alınamadı:", e);
+          showSetupScreen();
+        }
+      } else {
+        showSetupScreen();
+      }
     }
   };
 

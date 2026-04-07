@@ -1,6 +1,6 @@
 # NetOnline Digital Signage
 
-**Sürüm:** v2.0.3
+**Sürüm:** v2.1.0
 
 TV ekranlarında merkezi video yönetimi sağlayan web tabanlı **Digital Signage** sistemi.
 Çok müşterili (multi-tenant) ajans modeli: farklı firmalar için bağımsız ekran ve içerik yönetimi.
@@ -49,7 +49,7 @@ Bu sayede player'ın anonim auth'u admin session'ını etkilemez.
 
 ### Admin Dashboard (5 Sekme, SPA)
 - **Genel Bakış** — Realtime: toplam/çevrimiçi ekran, toplam/aktif video, ekran durumu tablosu
-- **Ekranlar** — Ekran CRUD, playlist atama, online/offline durum takibi
+- **Ekranlar** — Ekran CRUD, playlist atama, online/offline durum takibi, **"Linki Kopyala"** ile TV ekranına doğrudan link oluşturma
 - **İçerikler** — Video yükleme (çoklu, drag-drop), otomatik thumbnail, filtreler, aktif/pasif toggle
 - **Playlist'ler** — Sıralı playlist oluştur/düzenle, ↑↓ sıralama, ekrana atama
 - **Ayarlar** — Firma CRUD (bağımlılık kontrolü), şifre değiştirme
@@ -57,6 +57,8 @@ Bu sayede player'ın anonim auth'u admin session'ını etkilemez.
 ### TV Oynatıcı
 - İlk açılışta ekran kayıt formu (firma, ad, konum, yön)
 - `screenId` localStorage'a kaydedilir — sayfa yenilense de devam eder
+- **URL parametreli link modu:** `player.html?screen=ID` ile setup ekranı atlanır, direkt ekrana bağlanır (stateless, localStorage kullanılmaz)
+- **Kontrol çubuğu:** fare hareketiyle görünür, 3 saniye hareketsizlikte kaybolur — play/pause, ses, fullscreen
 - Realtime `onSnapshot` ile anlık güncelleme (polling yok)
 - Dashboard'dan playlist atanınca player 10 saniyede değişimi algılar
 - Heartbeat: her 60 saniyede `lastSeen` + `currentVideo` güncelleme

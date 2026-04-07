@@ -5,7 +5,7 @@
 TV ekranlarında merkezi video yönetimi sağlayan **Digital Signage** sistemi.
 Çok müşterili ajans modeli: firmalar dashboard üzerinden dinamik olarak yönetilir.
 
-**Mevcut sürüm:** v2.0.3 (kararlı, prodüksiyona hazır)
+**Mevcut sürüm:** v2.1.0 (kararlı, prodüksiyona hazır)
 
 ---
 
@@ -191,4 +191,4 @@ node test-upload.mjs        # 01.mp4 + 02.mp4 → Nethouse firmasına yükle
 
 `docs/CHANGELOG.md` **her kod değişikliğinde güncellenmelidir.**
 Sürümleme: `MAJOR.MINOR.PATCH` (Anlamsal Sürümleme)
-**Mevcut sürüm: v2.0.3**
+**Mevcut sürüm: v2.1.0**

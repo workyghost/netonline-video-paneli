@@ -316,6 +316,10 @@ function initScreens() {
             data-id="${esc(screenId)}" data-name="${esc(s.name)}" data-location="${esc(s.location||"")}" data-orientation="${esc(s.orientation)}" data-firm="${esc(s.firmId)}">
             Düzenle
           </button>
+          <button class="btn-copy-link px-2 py-1 text-xs bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded transition-colors"
+            data-id="${esc(screenId)}">
+            🔗 Linki Kopyala
+          </button>
           <button class="btn-delete-screen px-2 py-1 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded transition-colors"
             data-id="${esc(screenId)}" data-name="${esc(s.name)}">
             Sil
@@ -340,6 +344,17 @@ function initScreens() {
 
     tbody.querySelectorAll(".btn-edit-screen").forEach(btn => {
       btn.addEventListener("click", () => openEditScreenModal(btn.dataset));
+    });
+
+    tbody.querySelectorAll(".btn-copy-link").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const url = window.location.origin + "/player.html?screen=" + btn.dataset.id;
+        navigator.clipboard.writeText(url).then(() => {
+          showToast("Link kopyalandı! → " + url, "success");
+        }).catch(() => {
+          showToast("Kopyalanamadı, manuel kopyalayın: " + url, "error");
+        });
+      });
     });
 
     tbody.querySelectorAll(".btn-delete-screen").forEach(btn => {
