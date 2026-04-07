@@ -1,13 +1,7 @@
 // js/dashboard.js
 
 // ========== IMPORTS ==========
-import {
-  auth, db, storage,
-  onAuthStateChanged, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider,
-  collection, doc, addDoc, getDoc, getDocs, setDoc, deleteDoc, updateDoc,
-  query, where, orderBy, onSnapshot, serverTimestamp,
-  ref, uploadBytesResumable, getDownloadURL, deleteObject
-} from "./firebase-config.js";
+import { supabase } from "./supabase-config.js";
 
 // ========== STATE ==========
 let currentPage = "overview";
@@ -17,20 +11,35 @@ let currentUser   = null;
 let isUploading   = false;     // blocks modal close during upload
 
 // ========== AUTH ==========
-onAuthStateChanged(auth, async (user) => {
-  if (!user || !user.email) {
+supabase.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_OUT' || !session) {
     window.location.href = "index.html";
     return;
   }
-  currentUser = user;
-  document.getElementById("user-email").textContent = user.email;
+  if (session && session.user) {
+    currentUser = session.user;
+    document.getElementById("user-email").textContent = currentUser.email;
+    await loadFirmsMap();
+    if (currentPage === "overview") showPage("overview");
+  }
+});
+
+// Initial check
+supabase.auth.getSession().then(async ({ data: { session } }) => {
+  if (!session) {
+    window.location.href = "index.html";
+    return;
+  }
+  currentUser = session.user;
+  document.getElementById("user-email").textContent = currentUser.email;
   await loadFirmsMap();
   showPage("overview");
 });
 
 document.getElementById("logout-btn").addEventListener("click", async () => {
   try {
-    await signOut(auth);
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
     window.location.href = "index.html";
   } catch (e) {
     showToast("Çıkış yapılamadı: " + e.message, "error");
@@ -111,20 +120,21 @@ function esc(str) {
 function timeAgo(timestamp) {
   if (!timestamp) return "—";
   try {
-    const diff = Math.max(0, Date.now() - timestamp.toDate().getTime());
+    const date = new Date(timestamp);
+    const diff = Math.max(0, Date.now() - date.getTime());
     const minutes = Math.floor(diff / 60000);
     if (minutes < 1)  return "Az önce";
     if (minutes < 60) return `${minutes} dakika önce`;
     const hours = Math.floor(minutes / 60);
     if (hours < 24)   return `${hours} saat önce`;
-    return timestamp.toDate().toLocaleDateString("tr-TR");
+    return date.toLocaleDateString("tr-TR");
   } catch { return "—"; }
 }
 
 function formatDate(ts) {
   if (!ts) return "Sınırsız";
   try {
-    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    const d = new Date(ts);
     return d.toLocaleDateString("tr-TR");
   } catch { return "Sınırsız"; }
 }
@@ -134,9 +144,10 @@ const ORIENTATION_BADGE = { horizontal: "bg-blue-500/10 text-blue-400", vertical
 
 async function loadFirmsMap() {
   try {
-    const snap = await getDocs(collection(db, "firms"));
+    const { data: firms, error } = await supabase.from("firms").select("id, name");
+    if (error) throw error;
     firmsMap.clear();
-    snap.forEach(d => firmsMap.set(d.id, d.data().name));
+    firms.forEach(d => firmsMap.set(d.id, d.name));
   } catch (e) {
     showToast("Firmalar yüklenemedi", "error");
   }
@@ -192,15 +203,21 @@ function initOverview() {
     </div>
   `;
 
-  const unsubVideos = onSnapshot(collection(db, "videos"), (snap) => {
-    const active = snap.docs.filter(d => d.data().isActive).length;
+  const fetchVideosCount = async () => {
+    const [{ count: total }, { count: active }] = await Promise.all([
+      supabase.from("videos").select("*", { count: "exact", head: true }),
+      supabase.from("videos").select("*", { count: "exact", head: true }).eq("is_active", true)
+    ]);
     const tv = document.getElementById("m-total-videos");
     const av = document.getElementById("m-active-videos");
-    if (tv) tv.textContent = snap.size;
-    if (av) av.textContent = active;
-  });
+    if (tv) tv.textContent = total || 0;
+    if (av) av.textContent = active || 0;
+  };
 
-  const unsubScreens = onSnapshot(collection(db, "screens"), (snap) => {
+  const fetchScreens = async () => {
+    const { data: screens, error } = await supabase.from("screens").select("*");
+    if (error) return;
+
     const now = Date.now();
     const TWO_MIN = 2 * 60 * 1000;
     let online = 0;
@@ -208,9 +225,8 @@ function initOverview() {
     if (!tbody) return;
     tbody.innerHTML = "";
 
-    snap.forEach(d => {
-      const s = d.data();
-      const lastMs = s.lastSeen?.toDate?.().getTime() ?? 0;
+    (screens || []).forEach(s => {
+      const lastMs = s.last_seen ? new Date(s.last_seen).getTime() : 0;
       const isOnline = (now - lastMs) < TWO_MIN;
       if (isOnline) online++;
 
@@ -218,7 +234,7 @@ function initOverview() {
       tr.className = "border-b border-gray-800/50 hover:bg-gray-800/20";
       tr.innerHTML = `
         <td class="px-4 py-3 text-gray-200 font-medium">${esc(s.name)}</td>
-        <td class="px-4 py-3 text-gray-400">${esc(firmsMap.get(s.firmId) || "—")}</td>
+        <td class="px-4 py-3 text-gray-400">${esc(firmsMap.get(s.firm_id) || "—")}</td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium
             ${isOnline ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}">
@@ -226,19 +242,30 @@ function initOverview() {
             ${isOnline ? "Çevrimiçi" : "Çevrimdışı"}
           </span>
         </td>
-        <td class="px-4 py-3 text-gray-400 text-xs">${esc(s.currentVideoTitle || "—")}</td>
-        <td class="px-4 py-3 text-gray-500 text-xs">${timeAgo(s.lastSeen)}</td>
+        <td class="px-4 py-3 text-gray-400 text-xs">${esc(s.current_video_title || "—")}</td>
+        <td class="px-4 py-3 text-gray-500 text-xs">${timeAgo(s.last_seen)}</td>
       `;
       tbody.appendChild(tr);
     });
 
     const ts = document.getElementById("m-total-screens");
     const os = document.getElementById("m-online-screens");
-    if (ts) ts.textContent = snap.size;
+    if (ts) ts.textContent = screens.length;
     if (os) os.textContent = online;
-  });
+  };
 
-  unsubscribers.overview = () => { unsubScreens(); unsubVideos(); };
+  fetchVideosCount();
+  fetchScreens();
+
+  const unsubVideos = supabase.channel("public:videos_overview")
+    .on("postgres_changes", { event: "*", schema: "public", table: "videos" }, fetchVideosCount)
+    .subscribe();
+
+  const unsubScreens = supabase.channel("public:screens_overview")
+    .on("postgres_changes", { event: "*", schema: "public", table: "screens" }, fetchScreens)
+    .subscribe();
+
+  unsubscribers.overview = () => { supabase.removeChannel(unsubVideos); supabase.removeChannel(unsubScreens); };
 }
 function initScreens() {
   let generation = 0;
@@ -270,11 +297,14 @@ function initScreens() {
 
   document.getElementById("btn-add-screen").addEventListener("click", () => openAddScreenModal());
 
-  const unsubScreens = onSnapshot(collection(db, "screens"), async (snap) => {
+  const fetchScreens = async () => {
     const myGen = ++generation;
-    const playlistsSnap = await getDocs(collection(db, "playlists"));
+    const [{ data: playlists }, { data: screens }] = await Promise.all([
+      supabase.from("playlists").select("*"),
+      supabase.from("screens").select("*")
+    ]);
+    
     if (myGen !== generation) return;
-    const playlists = playlistsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     const tbody = document.getElementById("screens-tbody");
     if (!tbody) return;
@@ -282,22 +312,21 @@ function initScreens() {
     const now = Date.now();
     const TWO_MIN = 2 * 60 * 1000;
 
-    snap.forEach(d => {
-      const s = d.data();
-      const screenId = d.id;
-      const lastMs = s.lastSeen?.toDate?.().getTime() ?? 0;
+    (screens || []).forEach(s => {
+      const screenId = s.id;
+      const lastMs = s.last_seen ? new Date(s.last_seen).getTime() : 0;
       const isOnline = (now - lastMs) < TWO_MIN;
 
       let plOpts = '<option value="">Otomatik (Playlist Yok)</option>';
-      playlists.forEach(p => {
-        plOpts += `<option value="${esc(p.id)}" ${s.playlistId === p.id ? "selected" : ""}>${esc(p.name)}</option>`;
+      (playlists || []).forEach(p => {
+        plOpts += `<option value="${esc(p.id)}" ${s.playlist_id === p.id ? "selected" : ""}>${esc(p.name)}</option>`;
       });
 
       const tr = document.createElement("tr");
       tr.className = "border-b border-gray-800/50 hover:bg-gray-800/20";
       tr.innerHTML = `
         <td class="px-4 py-3 text-gray-200 font-medium">${esc(s.name)}</td>
-        <td class="px-4 py-3 text-gray-400">${esc(firmsMap.get(s.firmId) || "—")}</td>
+        <td class="px-4 py-3 text-gray-400">${esc(firmsMap.get(s.firm_id) || "—")}</td>
         <td class="px-4 py-3 text-gray-400 text-xs">${esc(s.location || "—")}</td>
         <td class="px-4 py-3 text-gray-400 text-xs">${esc(ORIENTATION_LABEL[s.orientation] || s.orientation)}</td>
         <td class="px-4 py-3">
@@ -313,7 +342,7 @@ function initScreens() {
         </td>
         <td class="px-4 py-3 flex gap-2">
           <button class="btn-edit-screen px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
-            data-id="${esc(screenId)}" data-name="${esc(s.name)}" data-location="${esc(s.location||"")}" data-orientation="${esc(s.orientation)}" data-firm="${esc(s.firmId)}">
+            data-id="${esc(screenId)}" data-name="${esc(s.name)}" data-location="${esc(s.location||"")}" data-orientation="${esc(s.orientation)}" data-firm="${esc(s.firm_id)}">
             Düzenle
           </button>
           <button class="btn-copy-link px-2 py-1 text-xs bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded transition-colors"
@@ -333,12 +362,9 @@ function initScreens() {
       sel.addEventListener("change", async (e) => {
         const sid = e.target.dataset.screenId;
         const val = e.target.value || null;
-        try {
-          await updateDoc(doc(db, "screens", sid), { playlistId: val });
-          showToast("Playlist güncellendi", "success");
-        } catch (err) {
-          showToast("Güncellenemedi: " + err.message, "error");
-        }
+        const { error } = await supabase.from("screens").update({ playlist_id: val }).eq("id", sid);
+        if (error) showToast("Güncellenemedi: " + error.message, "error");
+        else showToast("Playlist güncellendi", "success");
       });
     });
 
@@ -360,17 +386,20 @@ function initScreens() {
     tbody.querySelectorAll(".btn-delete-screen").forEach(btn => {
       btn.addEventListener("click", async () => {
         if (!confirm(`"${btn.dataset.name}" ekranını silmek istediğinizden emin misiniz?`)) return;
-        try {
-          await deleteDoc(doc(db, "screens", btn.dataset.id));
-          showToast("Ekran silindi");
-        } catch (err) {
-          showToast("Silinemedi: " + err.message, "error");
-        }
+        const { error } = await supabase.from("screens").delete().eq("id", btn.dataset.id);
+        if (error) showToast("Silinemedi: " + error.message, "error");
+        else showToast("Ekran silindi");
       });
     });
-  });
+  };
 
-  unsubscribers.screens = unsubScreens;
+  fetchScreens();
+  const unsubScreens = supabase.channel("public:screens_list")
+    .on("postgres_changes", { event: "*", schema: "public", table: "screens" }, fetchScreens)
+    .on("postgres_changes", { event: "*", schema: "public", table: "playlists" }, fetchScreens)
+    .subscribe();
+
+  unsubscribers.screens = () => { supabase.removeChannel(unsubScreens); };
 }
 
 function openAddScreenModal() {
@@ -429,15 +458,17 @@ function openAddScreenModal() {
     btn.disabled = true; btn.textContent = "Kaydediliyor...";
 
     try {
-      await addDoc(collection(db, "screens"), {
-        firmId, name, location, orientation,
+      const { error } = await supabase.from("screens").insert([{
+        firm_id: firmId,
+        name, location, orientation,
         status: "offline",
-        lastSeen: serverTimestamp(),
-        currentVideoId: null,
-        currentVideoTitle: null,
-        playlistId: null,
-        registeredAt: serverTimestamp()
-      });
+        last_seen: new Date().toISOString(),
+        current_video_id: null,
+        current_video_title: null,
+        playlist_id: null,
+        registered_at: new Date().toISOString()
+      }]);
+      if (error) throw error;
       closeModal();
       showToast("Ekran eklendi");
     } catch (e) {
@@ -487,12 +518,11 @@ function openEditScreenModal({ id, name, location, orientation, firm }) {
     const newLocation = document.getElementById("es-location").value.trim();
     const newOrient   = document.querySelector('input[name="es-orientation"]:checked')?.value;
     if (!newName || !newLocation || !newOrient) return;
-    try {
-      await updateDoc(doc(db, "screens", id), { name: newName, location: newLocation, orientation: newOrient });
+    const { error } = await supabase.from("screens").update({ name: newName, location: newLocation, orientation: newOrient }).eq("id", id);
+    if (error) showToast(error.message, "error");
+    else {
       closeModal();
       showToast("Ekran güncellendi");
-    } catch (e) {
-      showToast(e.message, "error");
     }
   });
 }
@@ -549,8 +579,9 @@ function initContents() {
 
   async function loadVideos() {
     try {
-      const snap = await getDocs(query(collection(db, "videos"), orderBy("createdAt", "desc")));
-      allVideos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const { data: videos, error } = await supabase.from("videos").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      allVideos = videos || [];
       renderVideos();
     } catch (e) {
       showToast("Videolar yüklenemedi: " + e.message, "error");
@@ -563,7 +594,7 @@ function initContents() {
     const search       = (document.getElementById("filter-search")?.value || "").toLowerCase();
 
     const filtered = allVideos.filter(v => {
-      if (firmFilter   && v.firmId      !== firmFilter)   return false;
+      if (firmFilter   && v.firm_id      !== firmFilter)   return false;
       if (orientFilter && v.orientation !== orientFilter) return false;
       if (search       && !v.title?.toLowerCase().includes(search)) return false;
       return true;
@@ -589,9 +620,9 @@ function initContents() {
 
       const tdThumb = document.createElement("td");
       tdThumb.className = "px-4 py-3";
-      if (v.thumbnailUrl) {
+      if (v.thumbnail_url) {
         const img = document.createElement("img");
-        img.src = v.thumbnailUrl; img.alt = v.title;
+        img.src = v.thumbnail_url; img.alt = v.title;
         img.className = "w-16 h-10 object-cover rounded";
         tdThumb.appendChild(img);
       } else {
@@ -603,18 +634,18 @@ function initContents() {
 
       tr.innerHTML = `
         <td class="px-4 py-3 text-gray-200 font-medium">${esc(v.title)}</td>
-        <td class="px-4 py-3 text-gray-400">${esc(firmsMap.get(v.firmId) || "—")}</td>
+        <td class="px-4 py-3 text-gray-400">${esc(firmsMap.get(v.firm_id) || "—")}</td>
         <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-xs font-medium ${ORIENTATION_BADGE[v.orientation] || ""}">${esc(ORIENTATION_LABEL[v.orientation] || v.orientation)}</span></td>
-        <td class="px-4 py-3 text-gray-400 text-xs">${formatDate(v.expiresAt)}</td>
+        <td class="px-4 py-3 text-gray-400 text-xs">${formatDate(v.expires_at)}</td>
         <td class="px-4 py-3">
-          <div class="toggle-btn w-10 h-5 rounded-full cursor-pointer transition-colors relative ${v.isActive ? "bg-blue-600" : "bg-gray-700"}"
-            data-id="${esc(v.id)}" data-active="${v.isActive}">
-            <span class="absolute top-0.5 ${v.isActive ? "right-0.5" : "left-0.5"} w-4 h-4 bg-white rounded-full transition-all"></span>
+          <div class="toggle-btn w-10 h-5 rounded-full cursor-pointer transition-colors relative ${v.is_active ? "bg-blue-600" : "bg-gray-700"}"
+            data-id="${esc(v.id)}" data-active="${v.is_active}">
+            <span class="absolute top-0.5 ${v.is_active ? "right-0.5" : "left-0.5"} w-4 h-4 bg-white rounded-full transition-all"></span>
           </div>
         </td>
         <td class="px-4 py-3">
           <button class="btn-delete-video px-3 py-1 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded transition-colors"
-            data-id="${esc(v.id)}" data-filename="${esc(v.fileName || "")}">Sil</button>
+            data-id="${esc(v.id)}" data-filename="${esc(v.file_name || "")}">Sil</button>
         </td>
       `;
       tr.insertBefore(tdThumb, tr.firstChild);
@@ -631,7 +662,8 @@ function initContents() {
         dot.classList.toggle("right-0.5", newActive);
         dot.classList.toggle("left-0.5", !newActive);
         try {
-          await updateDoc(doc(db, "videos", btn.dataset.id), { isActive: newActive, updatedAt: serverTimestamp() });
+          const { error } = await supabase.from("videos").update({ is_active: newActive, updated_at: new Date().toISOString() }).eq("id", btn.dataset.id);
+          if (error) throw error;
         } catch (e) {
           showToast("Güncellenemedi: " + e.message, "error");
           btn.dataset.active = String(!newActive);
@@ -648,13 +680,14 @@ function initContents() {
         if (!confirm("Bu videoyu silmek istediğinizden emin misiniz?")) return;
         const videoId = btn.dataset.id;
         const video = allVideos.find(v => v.id === videoId);
-        const fileName = video?.fileName || "";
+        const fileName = video?.file_name || "";
         if (fileName) {
-          try { await deleteObject(ref(storage, "videos/" + fileName)); } catch (_) {}
-          try { await deleteObject(ref(storage, "thumbnails/thumb_" + fileName.replace(/\.mp4$/i, ".jpg"))); } catch (_) {}
+          try { await supabase.storage.from("storage-netonline").remove(["videos/" + fileName]); } catch (_) {}
+          try { await supabase.storage.from("storage-netonline").remove(["thumbnails/thumb_" + fileName.replace(/\.mp4$/i, ".jpg")]); } catch (_) {}
         }
         try {
-          await deleteDoc(doc(db, "videos", videoId));
+          const { error } = await supabase.from("videos").delete().eq("id", videoId);
+          if (error) throw error;
           showToast("Video silindi");
           await loadVideos();
         } catch (e) {
@@ -806,36 +839,47 @@ function initContents() {
   }
 
   function uploadSingleVideo(file, title, firmId, orientation, expiry) {
-    return new Promise((resolve, reject) => {
-      const fileName   = Date.now() + "_" + file.name;
-      const storageRef = ref(storage, "videos/" + fileName);
-      const task       = uploadBytesResumable(storageRef, file);
-      task.on("state_changed",
-        snap => {
-          const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
-          const bar   = document.getElementById("upload-progress-bar");
-          const pctEl = document.getElementById("upload-progress-pct");
-          if (bar)   bar.style.width = pct + "%";
-          if (pctEl) pctEl.textContent = pct + "%";
-        },
-        reject,
-        async () => {
-          try {
-            const fileUrl = await getDownloadURL(task.snapshot.ref);
-            let thumbnailUrl = "";
-            try { thumbnailUrl = await generateThumbnail(file, fileName); } catch (_) {}
-            const videoRef = doc(collection(db, "videos"));
-            await setDoc(videoRef, {
-              title, firmId, orientation, fileName, fileUrl, thumbnailUrl,
-              isActive: true,
-              expiresAt: expiry ? new Date(expiry) : null,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp()
-            });
-            resolve();
-          } catch (e) { reject(e); }
-        }
-      );
+    return new Promise(async (resolve, reject) => {
+      const fileName = Date.now() + "_" + file.name.replace(/[^a-zA-Z0-9.\-_]/g, '');
+      const bar = document.getElementById("upload-progress-bar");
+      const pctEl = document.getElementById("upload-progress-pct");
+
+      // Supabase v2 standard JS upload doesn't emit progress easily, simulate visually
+      let prog = 0;
+      const progInt = setInterval(() => { 
+        prog += 5; 
+        if (prog > 90) prog = 90;
+        if (bar) bar.style.width = prog + "%";
+        if (pctEl) pctEl.textContent = prog + "%";
+      }, 500);
+
+      try {
+        const { error: uploadError } = await supabase.storage.from('storage-netonline').upload("videos/" + fileName, file);
+        clearInterval(progInt);
+        if (bar) bar.style.width = "100%";
+        if (pctEl) pctEl.textContent = "100%";
+
+        if (uploadError) return reject(uploadError);
+
+        const { data: { publicUrl: fileUrl } } = supabase.storage.from('storage-netonline').getPublicUrl("videos/" + fileName);
+
+        let thumbnailUrl = "";
+        try { thumbnailUrl = await generateThumbnail(file, fileName); } catch (_) {}
+
+        const { error: dbError } = await supabase.from("videos").insert([{
+          title, firm_id: firmId, orientation, file_name: fileName, file_url: fileUrl, thumbnail_url: thumbnailUrl,
+          is_active: true,
+          expires_at: expiry ? new Date(expiry).toISOString() : null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }]);
+
+        if (dbError) throw dbError;
+        resolve();
+      } catch (e) {
+        clearInterval(progInt);
+        reject(e);
+      }
     });
   }
 
@@ -857,10 +901,11 @@ function initContents() {
           canvas.toBlob(async blob => {
             URL.revokeObjectURL(objectUrl);
             if (!blob) { reject(new Error("Canvas blob oluşturulamadı")); return; }
-            const thumbFileName = "thumb_" + fileName.replace(/\.mp4$/i, ".jpg");
-            const thumbRef = ref(storage, "thumbnails/" + thumbFileName);
-            await uploadBytesResumable(thumbRef, blob);
-            resolve(await getDownloadURL(thumbRef));
+            const thumbFileName = "thumb_" + fileName.replace(/\.[^/.]+$/, ".jpg");
+            const { error: tErr } = await supabase.storage.from("storage-netonline").upload("thumbnails/" + thumbFileName, blob);
+            if (tErr) return reject(tErr);
+            const { data: { publicUrl } } = supabase.storage.from("storage-netonline").getPublicUrl("thumbnails/" + thumbFileName);
+            resolve(publicUrl);
           }, "image/jpeg", 0.75);
         } catch (e) { URL.revokeObjectURL(objectUrl); reject(e); }
       };
@@ -899,14 +944,15 @@ function initPlaylists() {
 
   async function loadPlaylists() {
     try {
-      const snap = await getDocs(collection(db, "playlists"));
+      const { data: playlists, error } = await supabase.from("playlists").select("*");
+      if (error) throw error;
       const tbody    = document.getElementById("playlists-tbody");
       const emptyEl  = document.getElementById("playlists-empty");
       const tableWrap = document.getElementById("playlists-table-wrap");
       if (!tbody) return;
       tbody.innerHTML = "";
 
-      if (snap.empty) {
+      if (!playlists || playlists.length === 0) {
         emptyEl?.classList.remove("hidden");
         tableWrap?.classList.add("hidden");
         return;
@@ -914,17 +960,16 @@ function initPlaylists() {
       emptyEl?.classList.add("hidden");
       tableWrap?.classList.remove("hidden");
 
-      snap.forEach(d => {
-        const p = d.data();
+      playlists.forEach(p => {
         const tr = document.createElement("tr");
         tr.className = "border-b border-gray-800/50 hover:bg-gray-800/20";
         tr.innerHTML = `
           <td class="px-4 py-3 text-gray-200 font-medium">${esc(p.name)}</td>
-          <td class="px-4 py-3 text-gray-400">${esc(firmsMap.get(p.firmId) || "—")}</td>
+          <td class="px-4 py-3 text-gray-400">${esc(firmsMap.get(p.firm_id) || "—")}</td>
           <td class="px-4 py-3 text-gray-400">${(p.items || []).length}</td>
           <td class="px-4 py-3 flex gap-2">
-            <button class="btn-edit-pl px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded" data-id="${esc(d.id)}">Düzenle</button>
-            <button class="btn-delete-pl px-2 py-1 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded" data-id="${esc(d.id)}" data-name="${esc(p.name)}">Sil</button>
+            <button class="btn-edit-pl px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded" data-id="${esc(p.id)}">Düzenle</button>
+            <button class="btn-delete-pl px-2 py-1 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded" data-id="${esc(p.id)}" data-name="${esc(p.name)}">Sil</button>
           </td>
         `;
         tbody.appendChild(tr);
@@ -932,21 +977,22 @@ function initPlaylists() {
 
       tbody.querySelectorAll(".btn-edit-pl").forEach(btn => {
         btn.addEventListener("click", async () => {
-          const plSnap = await getDoc(doc(db, "playlists", btn.dataset.id));
-          if (plSnap.exists()) openPlaylistModal(btn.dataset.id, plSnap.data());
+          const { data: plSnap } = await supabase.from("playlists").select("*").eq("id", btn.dataset.id).single();
+          if (plSnap) openPlaylistModal(btn.dataset.id, plSnap);
         });
       });
 
       tbody.querySelectorAll(".btn-delete-pl").forEach(btn => {
         btn.addEventListener("click", async () => {
-          const screensSnap = await getDocs(query(collection(db, "screens"), where("playlistId", "==", btn.dataset.id)));
-          if (!screensSnap.empty) {
-            if (!confirm(`Bu playlist ${screensSnap.size} ekranda kullanılıyor. Yine de silmek istiyor musunuz?`)) return;
+          const { count } = await supabase.from("screens").select("*", { count: 'exact', head: true }).eq("playlist_id", btn.dataset.id);
+          if (count > 0) {
+            if (!confirm(`Bu playlist ${count} ekranda kullanılıyor. Yine de silmek istiyor musunuz?`)) return;
           } else {
             if (!confirm(`"${btn.dataset.name}" silinecek. Emin misiniz?`)) return;
           }
           try {
-            await deleteDoc(doc(db, "playlists", btn.dataset.id));
+            const { error } = await supabase.from("playlists").delete().eq("id", btn.dataset.id);
+            if (error) throw error;
             showToast("Playlist silindi");
             loadPlaylists();
           } catch (e) {
@@ -973,10 +1019,10 @@ function initPlaylists() {
         <div>
           <label class="block text-xs text-gray-400 mb-1">Firma</label>
           <select id="pl-firm" class="w-full bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2">
-            ${firmsOptions(existing?.firmId || "")}
+            ${firmsOptions(existing?.firm_id || "")}
           </select>
         </div>
-        <div id="pl-videos-wrap" class="${existing?.firmId ? "" : "hidden"}">
+        <div id="pl-videos-wrap" class="${existing?.firm_id ? "" : "hidden"}">
           <label class="block text-xs text-gray-400 mb-2">Videolar</label>
           <div id="pl-video-list" class="max-h-40 overflow-y-auto space-y-1 bg-gray-800 rounded-lg p-2 mb-3"></div>
           <label class="block text-xs text-gray-400 mb-2">Sıra</label>
@@ -998,8 +1044,8 @@ function initPlaylists() {
 
     async function loadVideosForFirm(firmId) {
       try {
-        const snap = await getDocs(query(collection(db, "videos"), where("firmId", "==", firmId)));
-        videosForFirm = snap.docs.map(d => ({ id: d.id, title: d.data().title }));
+        const { data: snap } = await supabase.from("videos").select("id, title").eq("firm_id", firmId);
+        videosForFirm = (snap || []).map(d => ({ id: d.id, title: d.title }));
         renderVideoCheckboxes();
         renderOrderList();
       } catch (e) {
@@ -1077,8 +1123,8 @@ function initPlaylists() {
       await loadVideosForFirm(firmId);
     });
 
-    if (existing?.firmId) {
-      await loadVideosForFirm(existing.firmId);
+    if (existing?.firm_id) {
+      await loadVideosForFirm(existing.firm_id);
     }
 
     document.getElementById("pl-save").addEventListener("click", async () => {
@@ -1093,10 +1139,12 @@ function initPlaylists() {
       btn.disabled = true; btn.textContent = "Kaydediliyor...";
       try {
         if (playlistId) {
-          await updateDoc(doc(db, "playlists", playlistId), { name, firmId, items, updatedAt: serverTimestamp() });
+          const { error } = await supabase.from("playlists").update({ name, firm_id: firmId, items, updated_at: new Date().toISOString() }).eq("id", playlistId);
+          if (error) throw error;
           showToast("Playlist güncellendi");
         } else {
-          await addDoc(collection(db, "playlists"), { name, firmId, items, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+          const { error } = await supabase.from("playlists").insert([{ name, firm_id: firmId, items, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }]);
+          if (error) throw error;
           showToast("Playlist oluşturuldu");
         }
         closeModal();
@@ -1155,18 +1203,20 @@ function initSettings() {
   `;
 
   // ---- Firma yönetimi ----
-  const unsubFirms = onSnapshot(collection(db, "firms"), (snap) => {
+  const fetchFirms = async () => {
+    const { data: firms, error } = await supabase.from("firms").select("*");
+    if (error) return;
     const container = document.getElementById("firms-list");
     if (!container) return;
     container.innerHTML = "";
-    snap.forEach(d => {
+    (firms || []).forEach(d => {
       const row = document.createElement("div");
       row.className = "flex items-center gap-2 py-2 border-b border-gray-800/50";
       row.innerHTML = `
         <input class="firm-name-input flex-1 bg-transparent border-0 text-gray-200 text-sm px-1 py-0.5 rounded focus:bg-gray-800 focus:border focus:border-gray-700 outline-none"
-          value="${esc(d.data().name)}" data-id="${esc(d.id)}" data-original="${esc(d.data().name)}" maxlength="100">
+          value="${esc(d.name)}" data-id="${esc(d.id)}" data-original="${esc(d.name)}" maxlength="100">
         <button class="btn-save-firm hidden px-2 py-1 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded" data-id="${esc(d.id)}">Kaydet</button>
-        <button class="btn-delete-firm px-2 py-1 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded" data-id="${esc(d.id)}" data-name="${esc(d.data().name)}">Sil</button>
+        <button class="btn-delete-firm px-2 py-1 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded" data-id="${esc(d.id)}" data-name="${esc(d.name)}">Sil</button>
       `;
       container.appendChild(row);
     });
@@ -1184,7 +1234,8 @@ function initSettings() {
         const newName = input.value.trim();
         if (!newName) return;
         try {
-          await updateDoc(doc(db, "firms", btn.dataset.id), { name: newName });
+          const { error } = await supabase.from("firms").update({ name: newName }).eq("id", btn.dataset.id);
+          if (error) throw error;
           input.dataset.original = newName;
           btn.classList.add("hidden");
           firmsMap.set(btn.dataset.id, newName);
@@ -1200,15 +1251,16 @@ function initSettings() {
         const firmId = btn.dataset.id;
         const name   = btn.dataset.name;
         try {
-          const [screensSnap, videosSnap] = await Promise.all([
-            getDocs(query(collection(db, "screens"), where("firmId", "==", firmId))),
-            getDocs(query(collection(db, "videos"),  where("firmId", "==", firmId)))
+          const [{ count: screensCount }, { count: videosCount }] = await Promise.all([
+            supabase.from("screens").select("*", { count: 'exact', head: true }).eq("firm_id", firmId),
+            supabase.from("videos").select("*", { count: 'exact', head: true }).eq("firm_id", firmId)
           ]);
-          const msg = screensSnap.size + videosSnap.size > 0
-            ? `Bu firmaya bağlı ${screensSnap.size} ekran ve ${videosSnap.size} video var. Yine de silmek istiyor musunuz?`
+          const msg = (screensCount + videosCount) > 0
+            ? `Bu firmaya bağlı ${screensCount || 0} ekran ve ${videosCount || 0} video var. Yine de silmek istiyor musunuz?`
             : `"${name}" firmasını silmek istediğinizden emin misiniz?`;
           if (!confirm(msg)) return;
-          await deleteDoc(doc(db, "firms", firmId));
+          const { error } = await supabase.from("firms").delete().eq("id", firmId);
+          if (error) throw error;
           firmsMap.delete(firmId);
           showToast("Firma silindi");
         } catch (e) {
@@ -1216,15 +1268,21 @@ function initSettings() {
         }
       });
     });
-  });
+  };
+
+  fetchFirms();
+  const unsubFirms = supabase.channel("public:firms")
+    .on("postgres_changes", { event: "*", schema: "public", table: "firms" }, fetchFirms)
+    .subscribe();
 
   document.getElementById("btn-add-firm").addEventListener("click", async () => {
     const input = document.getElementById("new-firm-input");
     const name  = input.value.trim();
     if (!name) return;
     try {
-      const docRef = await addDoc(collection(db, "firms"), { name, createdAt: serverTimestamp() });
-      firmsMap.set(docRef.id, name);
+      const { data, error } = await supabase.from("firms").insert([{ name, created_at: new Date().toISOString() }]).select().single();
+      if (error) throw error;
+      firmsMap.set(data.id, name);
       input.value = "";
       showToast("Firma eklendi");
     } catch (e) {
@@ -1253,22 +1311,19 @@ function initSettings() {
     btn.disabled = true; btn.textContent = "Güncelleniyor...";
 
     try {
-      const credential = EmailAuthProvider.credential(currentUser.email, current);
-      await reauthenticateWithCredential(currentUser, credential);
-      await updatePassword(currentUser, newPw);
+      const { error } = await supabase.auth.updateUser({ password: newPw });
+      if (error) throw error;
       document.getElementById("pw-current").value = "";
       document.getElementById("pw-new").value     = "";
       document.getElementById("pw-confirm").value = "";
       showToast("Şifre güncellendi");
     } catch (e) {
-      errEl.textContent = e.code === "auth/wrong-password"
-        ? "Mevcut şifre yanlış."
-        : e.message;
+      errEl.textContent = e.message;
       errEl.classList.remove("hidden");
     } finally {
       btn.disabled = false; btn.textContent = "Şifreyi Güncelle";
     }
   });
 
-  unsubscribers.settings = unsubFirms;
+  unsubscribers.settings = () => { supabase.removeChannel(unsubFirms); };
 }

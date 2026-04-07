@@ -6,6 +6,19 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.2.0] — 2026-04-07
+
+### Değiştirildi
+- **Backend Geçişi**: Firebase'den Supabase'e geçiş tamamlandı.
+  - Veritabanı olarak NoSQL (Firestore) yerine PostgreSQL (Supabase) kullanıldı.
+  - Kimlik doğrulama Firebase Auth'tan Supabase Auth'a geçirildi.
+  - Realtime veri akışı için Firestore `onSnapshot` yerine Supabase Realtime (Channels) yapısına geçildi.
+  - Depolama operasyonları Supabase Storage API'ye aktarıldı.
+- Firebase'e özel olan tüm konfigürasyon ve kurallar (`firebase-config.js`, `firestore.rules` vb.) temizlendi, `supabase-config.js` eklendi.
+- PostgreSQL standardına uygun olarak camelCase veritabanı isimleri snake_case'e dönüştürüldü.
+
+---
+
 ## [2.1.0] — 2026-04-07
 
 ### Eklendi

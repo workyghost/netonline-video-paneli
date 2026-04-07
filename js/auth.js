@@ -1,9 +1,5 @@
 // js/auth.js
-import {
-  auth,
-  onAuthStateChanged,
-  signInWithEmailAndPassword
-} from "./firebase-config.js";
+import { supabase } from "./supabase-config.js";
 
 // DOM elementleri
 const loginForm = document.getElementById("loginForm");
@@ -13,20 +9,6 @@ const errorMessage = document.getElementById("errorMessage");
 const loginButton = document.getElementById("loginButton");
 const loginButtonText = document.getElementById("loginButtonText");
 const loginSpinner = document.getElementById("loginSpinner");
-
-// Firebase hata kodlarını Türkçeye çevir
-function getErrorMessage(errorCode) {
-  const messages = {
-    "auth/invalid-email": "Geçersiz e-posta adresi.",
-    "auth/user-disabled": "Bu hesap devre dışı bırakılmış.",
-    "auth/user-not-found": "Bu e-posta ile kayıtlı hesap bulunamadı.",
-    "auth/wrong-password": "Şifre hatalı.",
-    "auth/invalid-credential": "E-posta veya şifre hatalı.",
-    "auth/too-many-requests": "Çok fazla başarısız deneme. Lütfen bir süre bekleyin.",
-    "auth/network-request-failed": "Ağ hatası. İnternet bağlantınızı kontrol edin."
-  };
-  return messages[errorCode] || "Giriş yapılırken bir hata oluştu.";
-}
 
 // Hata mesajını göster
 function showError(message) {
@@ -47,9 +29,11 @@ function setLoading(isLoading) {
 }
 
 // Oturum kontrolü — zaten giriş yapılmışsa dashboard'a yönlendir
-onAuthStateChanged(auth, (user) => {
-  if (user && user.email) {
-    window.location.href = "dashboard.html";
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+    if (session && session.user) {
+      window.location.href = "dashboard.html";
+    }
   }
 });
 
@@ -62,11 +46,15 @@ loginForm.addEventListener("submit", async (e) => {
   const email = emailInput.value.trim();
   const password = passwordInput.value;
 
-  try {
-    await signInWithEmailAndPassword(auth, email, password);
-    // onAuthStateChanged zaten dashboard'a yönlendirecek
-  } catch (error) {
-    showError(getErrorMessage(error.code));
+  const { error } = await supabase.auth.signInWithPassword({
+    email: email,
+    password: password,
+  });
+
+  if (error) {
+    showError(error.message === "Invalid login credentials" ? "E-posta veya şifre hatalı." : error.message);
     setLoading(false);
+  } else {
+    // onAuthStateChange tetiklenip dashboard'a yönlendirecek
   }
 });

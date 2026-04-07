@@ -1,11 +1,5 @@
 // js/player.js
-import {
-  playerAuth as auth, playerDb as db,
-  signInAnonymously,
-  collection, doc, addDoc, getDoc, getDocs, updateDoc,
-  query, where, onSnapshot,
-  serverTimestamp, enableNetwork, disableNetwork
-} from "./firebase-config.js";
+import { playerSupabase as supabase } from "./supabase-config.js";
 
 // ========== DOM REFS ==========
 const setupScreen         = document.getElementById("setupScreen");
@@ -60,12 +54,13 @@ function hideSetupError() {
 // ========== LOAD FIRMS ==========
 async function loadFirms() {
   try {
-    const snap = await getDocs(collection(db, "firms"));
+    const { data: snap, error } = await supabase.from("firms").select("*");
+    if (error) throw error;
     firmSelect.innerHTML = '<option value="">Firma seçin...</option>';
-    snap.forEach(d => {
+    (snap || []).forEach(d => {
       const opt = document.createElement("option");
       opt.value = d.id;
-      opt.textContent = d.data().name;
+      opt.textContent = d.name;
       firmSelect.appendChild(opt);
     });
   } catch (e) {
@@ -99,18 +94,19 @@ saveScreenButton.addEventListener("click", async () => {
   saveScreenButton.textContent = "Kaydediliyor...";
 
   try {
-    const docRef = await addDoc(collection(db, "screens"), {
-      firmId,
+    const { data: docRef, error } = await supabase.from("screens").insert([{
+      firm_id: firmId,
       name,
       location,
       orientation,
       status: "online",
-      lastSeen: serverTimestamp(),
-      currentVideoId: null,
-      currentVideoTitle: null,
-      playlistId: null,
-      registeredAt: serverTimestamp()
-    });
+      last_seen: new Date().toISOString(),
+      current_video_id: null,
+      current_video_title: null,
+      playlist_id: null,
+      registered_at: new Date().toISOString()
+    }]).select().single();
+    if (error) throw error;
     localStorage.setItem("screenId", docRef.id);
     startPlayback(docRef.id);
   } catch (e) {
@@ -132,19 +128,24 @@ function startPlayback(screenId) {
 
   startHeartbeat(screenId);
 
-  unsubscribeScreen = onSnapshot(doc(db, "screens", screenId), (snap) => {
-    if (!snap.exists()) {
+  const fetchScreen = async () => {
+    const { data: screen } = await supabase.from("screens").select("*").eq("id", screenId).single();
+    if (!screen) {
       localStorage.removeItem("screenId");
       cleanupAndShowSetup();
       return;
     }
-    const screen = snap.data();
-    if (screen.playlistId) {
-      startPlaylistMode(screen.playlistId);
+    if (screen.playlist_id) {
+      startPlaylistMode(screen.playlist_id);
     } else {
-      startFirmMode(screen.firmId, screen.orientation);
+      startFirmMode(screen.firm_id, screen.orientation);
     }
-  });
+  };
+
+  fetchScreen();
+  unsubscribeScreen = supabase.channel(`public:screens:id=${screenId}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "screens", filter: `id=eq.${screenId}` }, fetchScreen)
+    .subscribe();
 }
 
 // ========== FIRM MODE ==========
@@ -155,23 +156,25 @@ function startFirmMode(firmId, orientation) {
   currentOrientation = orientation;
   currentPlaylistId  = null;
 
-  if (unsubscribePlaylist){ unsubscribePlaylist(); unsubscribePlaylist = null; }
-  if (unsubscribeVideos)  { unsubscribeVideos();  unsubscribeVideos  = null; }
+  if (unsubscribePlaylist){ supabase.removeChannel(unsubscribePlaylist); unsubscribePlaylist = null; }
+  if (unsubscribeVideos)  { supabase.removeChannel(unsubscribeVideos);  unsubscribeVideos  = null; }
 
-  const q = query(
-    collection(db, "videos"),
-    where("firmId", "==", firmId),
-    where("isActive", "==", true)
-  );
-
-  unsubscribeVideos = onSnapshot(q, (snap) => {
-    const now    = new Date();
-    const videos = snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .filter(v => !v.expiresAt || v.expiresAt.toDate() > now)
-      .filter(v => v.orientation === orientation || v.orientation === "both");
-    updateVideoQueue(videos);
-  });
+  const fetchFirmVideos = async () => {
+    const { data: videos, error } = await supabase.from("videos").select("*")
+      .eq("firm_id", firmId)
+      .eq("is_active", true);
+    if (!error) {
+      const now = new Date();
+      const validVideos = (videos || [])
+        .filter(v => !v.expires_at || new Date(v.expires_at) > now)
+        .filter(v => v.orientation === orientation || v.orientation === "both");
+      updateVideoQueue(validVideos);
+    }
+  };
+  fetchFirmVideos();
+  unsubscribeVideos = supabase.channel(`public:videos:firm=${firmId}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "videos", filter: `firm_id=eq.${firmId}` }, fetchFirmVideos)
+    .subscribe();
 }
 
 // ========== PLAYLIST MODE ==========
@@ -180,26 +183,27 @@ function startPlaylistMode(playlistId) {
   currentPlaylistId = playlistId;
   currentFirmId     = null;
 
-  if (unsubscribeVideos)  { unsubscribeVideos();  unsubscribeVideos  = null; }
-  if (unsubscribePlaylist){ unsubscribePlaylist(); unsubscribePlaylist = null; }
+  if (unsubscribeVideos)  { supabase.removeChannel(unsubscribeVideos);  unsubscribeVideos  = null; }
+  if (unsubscribePlaylist){ supabase.removeChannel(unsubscribePlaylist); unsubscribePlaylist = null; }
 
-  unsubscribePlaylist = onSnapshot(doc(db, "playlists", playlistId), async (snap) => {
-    if (!snap.exists()) { currentPlaylistId = null; return; }
-    const playlist    = snap.data();
-    const sortedItems = [...playlist.items].sort((a, b) => a.order - b.order);
-
+  const fetchPlaylistVideos = async () => {
+    const { data: playlist } = await supabase.from("playlists").select("*").eq("id", playlistId).single();
+    if (!playlist) { currentPlaylistId = null; return; }
+    const sortedItems = [...(playlist.items || [])].sort((a, b) => a.order - b.order);
+    
     const videos = [];
     for (const item of sortedItems) {
       try {
-        const vSnap = await getDoc(doc(db, "videos", item.videoId));
-        if (vSnap.exists()) {
-          const v = { id: vSnap.id, ...vSnap.data() };
-          if (v.isActive) videos.push(v);
-        }
+        const { data: vSnap } = await supabase.from("videos").select("*").eq("id", item.videoId).single();
+        if (vSnap && vSnap.is_active) videos.push(vSnap);
       } catch (_) { /* video getirilemezse atla */ }
     }
     updateVideoQueue(videos);
-  });
+  };
+  fetchPlaylistVideos();
+  unsubscribePlaylist = supabase.channel(`public:playlists:id=${playlistId}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "playlists", filter: `id=eq.${playlistId}` }, fetchPlaylistVideos)
+    .subscribe();
 }
 
 // ========== VIDEO QUEUE ==========
@@ -235,8 +239,8 @@ function playVideo(index) {
   currentVideoIndex = index % videoQueue.length;
   currentVideo      = videoQueue[currentVideoIndex];
 
-  mainVideo.src = currentVideo.fileUrl;
-  bgVideo.src   = currentVideo.fileUrl;
+  mainVideo.src = currentVideo.file_url;
+  bgVideo.src   = currentVideo.file_url;
   mainVideo.load();
   bgVideo.load();
   mainVideo.muted = false;
@@ -321,19 +325,19 @@ function startHeartbeat(screenId) {
   if (heartbeatInterval) clearInterval(heartbeatInterval);
   heartbeatInterval = setInterval(async () => {
     try {
-      await updateDoc(doc(db, "screens", screenId), {
-        lastSeen:          serverTimestamp(),
-        status:            "online",
-        currentVideoId:    currentVideo?.id    || null,
-        currentVideoTitle: currentVideo?.title || null
-      });
+      await supabase.from("screens").update({
+        last_seen: new Date().toISOString(),
+        status: "online",
+        current_video_id: currentVideo?.id || null,
+        current_video_title: currentVideo?.title || null
+      }).eq("id", screenId);
     } catch (_) { /* heartbeat hatası oynatmayı durdurmasın */ }
   }, 60000);
 }
 
 window.addEventListener("beforeunload", () => {
   if (currentScreenId) {
-    updateDoc(doc(db, "screens", currentScreenId), { status: "offline" });
+    supabase.from("screens").update({ status: "offline" }).eq("id", currentScreenId);
   }
 });
 
@@ -343,7 +347,7 @@ async function resetScreen() {
 
   if (currentScreenId) {
     try {
-      await updateDoc(doc(db, "screens", currentScreenId), { status: "offline" });
+      await supabase.from("screens").update({ status: "offline" }).eq("id", currentScreenId);
     } catch (_) {}
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     stopAllListeners();
@@ -357,9 +361,9 @@ resetButton.addEventListener("click", resetScreen);
 
 // ========== LISTENER TEMİZLEME ==========
 function stopAllListeners() {
-  if (unsubscribeScreen)  { unsubscribeScreen();  unsubscribeScreen  = null; }
-  if (unsubscribePlaylist){ unsubscribePlaylist(); unsubscribePlaylist = null; }
-  if (unsubscribeVideos)  { unsubscribeVideos();  unsubscribeVideos  = null; }
+  if (unsubscribeScreen)  { supabase.removeChannel(unsubscribeScreen);  unsubscribeScreen  = null; }
+  if (unsubscribePlaylist){ supabase.removeChannel(unsubscribePlaylist); unsubscribePlaylist = null; }
+  if (unsubscribeVideos)  { supabase.removeChannel(unsubscribeVideos);  unsubscribeVideos  = null; }
 }
 
 function cleanupAndShowSetup() {
@@ -457,11 +461,6 @@ linkOverlay.addEventListener("click", () => {
   bgVideo.play().catch(() => {});
 });
 
-// ========== OFFLINE / ONLINE NETWORK YÖNETİMİ ==========
-// İnternet kesilince Firestore offline cache kullanır — onSnapshot'lar son veriyle çalışmaya devam eder.
-window.addEventListener("online",  () => enableNetwork(db).catch(() => {}));
-window.addEventListener("offline", () => disableNetwork(db).catch(() => {}));
-
 // ========== INIT ==========
 async function init() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -469,22 +468,17 @@ async function init() {
 
   const tryAuth = async () => {
     try {
-      await signInAnonymously(auth);
+      await supabase.auth.signInAnonymously();
     } catch (e) {
-      console.error("Anonim auth hatası:", e);
-      setupScreen.classList.remove("hidden");
-      playerScreen.classList.add("hidden");
-      showSetupError("Bağlantı hatası, yeniden deneniyor...");
-      setTimeout(tryAuth, 30000);
-      return;
+      console.warn("Anonim auth hatası (veya desteklenmiyor), anonim isteklerle devam ediliyor:", e);
     }
 
     if (urlScreenId) {
       // LINK MODU: ?screen= parametresi var
       isLinkMode = true;
       try {
-        const snap = await getDoc(doc(db, "screens", urlScreenId));
-        if (!snap.exists()) {
+        const { data: snap } = await supabase.from("screens").select("*").eq("id", urlScreenId).single();
+        if (!snap) {
           // Geçersiz ekran ID'si
           document.body.innerHTML = `
             <div style="color:white;text-align:center;padding:4rem;background:black;min-height:100vh;display:flex;align-items:center;justify-content:center;">
@@ -500,16 +494,22 @@ async function init() {
         // startPlayback'i direkt çağırmak yerine listener'ı kur
         // ama oynatmayı overlay tıklamasına bırak
         currentScreenId = urlScreenId;
-        if (unsubscribeScreen) { unsubscribeScreen(); unsubscribeScreen = null; }
-        unsubscribeScreen = onSnapshot(doc(db, "screens", urlScreenId), (screenSnap) => {
-          if (!screenSnap.exists()) return;
-          const screen = screenSnap.data();
-          if (screen.playlistId) {
-            startPlaylistMode(screen.playlistId);
-          } else {
-            startFirmMode(screen.firmId, screen.orientation);
-          }
-        });
+        if (unsubscribeScreen) { supabase.removeChannel(unsubscribeScreen); unsubscribeScreen = null; }
+        
+        const fetchScreen = async () => {
+           const { data: screenSnap } = await supabase.from("screens").select("*").eq("id", urlScreenId).single();
+           if (!screenSnap) return;
+           const screen = screenSnap;
+           if (screen.playlist_id) {
+             startPlaylistMode(screen.playlist_id);
+           } else {
+             startFirmMode(screen.firm_id, screen.orientation);
+           }
+        };
+        fetchScreen();
+        unsubscribeScreen = supabase.channel(`public:screens:link=${urlScreenId}`)
+          .on("postgres_changes", { event: "*", schema: "public", table: "screens", filter: `id=eq.${urlScreenId}` }, fetchScreen)
+          .subscribe();
       } catch (e) {
         console.error("Link modu ekran hatası:", e);
         document.body.innerHTML = `
@@ -522,8 +522,8 @@ async function init() {
       const screenId = localStorage.getItem("screenId");
       if (screenId) {
         try {
-          const snap = await getDoc(doc(db, "screens", screenId));
-          if (snap.exists()) {
+          const { data: snap } = await supabase.from("screens").select("*").eq("id", screenId).single();
+          if (snap) {
             startPlayback(screenId);
           } else {
             localStorage.removeItem("screenId");

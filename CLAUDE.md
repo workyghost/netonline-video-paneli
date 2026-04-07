@@ -5,7 +5,7 @@
 TV ekranlarında merkezi video yönetimi sağlayan **Digital Signage** sistemi.
 Çok müşterili ajans modeli: firmalar dashboard üzerinden dinamik olarak yönetilir.
 
-**Mevcut sürüm:** v2.1.0 (kararlı, prodüksiyona hazır)
+**Mevcut sürüm:** v2.2.0 (kararlı, prodüksiyona hazır)
 
 ---
 
@@ -14,10 +14,10 @@ TV ekranlarında merkezi video yönetimi sağlayan **Digital Signage** sistemi.
 | Katman | Teknoloji |
 |--------|-----------|
 | Arayüz | Vanilla JS, HTML5, TailwindCSS (CDN) |
-| Auth | Firebase Auth v9 (Email/Password + Anonymous) |
-| Veritabanı | Firebase Firestore v9 |
-| Depolama | Firebase Storage v9 |
-| Hosting | Firebase Hosting veya VPS (nginx) |
+| Auth | Supabase Auth (Email/Password + Anonymous) |
+| Veritabanı | Supabase PostgreSQL |
+| Depolama | Supabase Storage |
+| Hosting | Statik Sunucu (Nginx, vb.) |
 
 **Framework ekleme yok. React, Vue, build tool, npm package yok.**
 Her şey plain HTML/JS dosyaları olarak kalır. TailwindCSS sadece CDN üzerinden.
@@ -32,158 +32,98 @@ netonline-video-paneli/
 ├── dashboard.html          — Admin SPA (5 sekme, sidebar)
 ├── player.html             — TV oynatıcı (anonim auth)
 ├── css/
-│   └── style.css           — Login ve player stilleri (glassmorphism, spinner, toggle)
+│   └── style.css           — Login ve player stilleri
 ├── js/
-│   ├── firebase-config.js  — Firebase v9 config, çift app instance (admin + player)
+│   ├── supabase-config.js  — Supabase config, çift client instance (admin + player)
 │   ├── auth.js             — Login + oturum yönlendirme
-│   ├── dashboard.js        — SPA mantığı (5 sayfa, onSnapshot, toast, modal)
-│   └── player.js           — TV player (screenId, onSnapshot, heartbeat)
-├── firebase.json           — Hosting config + cache headers + emülatör portları
-├── firestore.rules         — Güvenlik kuralları
-├── firestore.indexes.json  — Composite index (firmId + isActive + createdAt)
-├── storage.rules           — Storage güvenlik kuralları
-├── seed-emulator.mjs       — Lokal geliştirme seed scripti (⚠️ prod'da çalıştırma)
-├── test-upload.mjs         — Lokal geliştirme video yükleme scripti
+│   ├── dashboard.js        — SPA mantığı (5 sayfa, realtime channel update, modal)
+│   └── player.js           — TV player (screenId, channel, heartbeat)
+├── sql/
+│   ├── schema.sql          — PostgreSQL şema ve RLS kuralları
+│   └── seed.sql            — Geliştirme ilk verileri
 └── docs/
     ├── README.md           — Kurulum, deployment, mimari
     └── CHANGELOG.md        — Sürüm geçmişi
 ```
 
-**`css/style.css`**: Dashboard artık Tailwind utility sınıfları kullanıyor. `style.css` sadece `index.html` (login) ve `player.html` tarafından kullanılıyor.
-
 ---
 
-## Mimari — v2 (Mevcut)
+## Mimari — v2 (Supabase)
 
-### Firebase Çift App Instance
+### Supabase İkili İstemci
 ```javascript
-// js/firebase-config.js
-const app       = initializeApp(firebaseConfig);           // Admin dashboard
-const playerApp = initializeApp(firebaseConfig, 'netonline-player'); // TV player
-
-// Neden: Firebase Auth IndexedDB'yi aynı origin'deki tüm tablar arasında paylaşır.
-// Ayrı app adı → player'ın anonim auth'u admin session'ını etkilemez.
+// js/supabase-config.js
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const playerSupabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    storageKey: 'netonline-player-auth',
+    persistSession: true,
+  }
+});
+// Neden: Playera yönelik auth (anonim vb) admin session'ını etkilemesin diye.
 ```
 
 ### Dashboard SPA (js/dashboard.js)
 - 5 sayfa: Genel Bakış, Ekranlar, İçerikler, Playlist'ler, Ayarlar
-- `showPage(pageId)` → önceki listener unsubscribe → yeni sayfa init
-- `unsubscribers[pageId]` → her sayfanın cleanup fonksiyonu
-- `onSnapshot` → Genel Bakış + Ekranlar + Ayarlar sayfaları realtime
-- `getDocs` → İçerikler + Playlist'ler sayfaları (upload/CRUD sonrası manual refresh)
+- Supabase Channels ile realtime data streaming
+- `showPage` sayfa bazlı lifecycle hook'u
 
 ### Player Akışı (js/player.js)
-```
-player.html açılır
-  → signInAnonymously(playerAuth)
-  → localStorage'da screenId var mı?
-      EVET → getDoc(screens/screenId) → exists? → onSnapshot listener → oynat
-      HAYIR → showSetupScreen()
-Setup: firma seç → ad/konum/yön gir → addDoc(screens) → localStorage'a screenId yaz → oynat
-Heartbeat: 60s interval → updateDoc(screens/id, {lastSeen, status, currentVideoId, currentVideoTitle})
-```
+- `player.html` `screenId` yi URL'den (`?screen=`) veya localStorage'dan okur.
+- Offline'ken ekranın oynatma yeteneğinin kesilmemesine odaklanılır.
+- Heartbeat mekanizması Supabase üzerinden işletilir.
 
 ---
 
-## Firestore Şeması (v2 Mevcut)
+## Veritabanı Şeması (PostgreSQL)
 
+```sql
+firms
+  id: uuid
+  name: text
+  created_at: timestamptz
+
+videos
+  id: uuid
+  title: text
+  firm_id: uuid (fk: firms.id)
+  orientation: text ('horizontal'|'vertical'|'both')
+  file_name: text
+  file_url: text
+  thumbnail_url: text
+  is_active: boolean
+  expires_at: timestamptz
+  created_at: timestamptz
+  updated_at: timestamptz
+
+screens
+  id: uuid
+  firm_id: uuid (fk: firms.id)
+  name: text
+  location: text
+  orientation: text
+  status: text ('online'|'offline')
+  last_seen: timestamptz
+  current_video_id: uuid
+  current_video_title: text
+  playlist_id: uuid (fk: playlists.id)
+  registered_at: timestamptz
+
+playlists
+  id: uuid
+  firm_id: uuid (fk: firms.id)
+  name: text
+  items: jsonb -- [{ videoId, order, durationOverride }]
+  created_at: timestamptz
+  updated_at: timestamptz
 ```
-firms/{firmId}
-  name: string
-  createdAt: timestamp
-
-videos/{videoId}
-  title: string
-  firmId: string
-  orientation: "horizontal" | "vertical" | "both"
-  fileName: string          // Storage'daki dosya adı (silme için)
-  fileUrl: string           // Firebase Storage download URL
-  thumbnailUrl: string
-  isActive: boolean
-  expiresAt: timestamp | null
-  createdAt: timestamp
-  updatedAt: timestamp
-
-screens/{screenId}
-  firmId: string
-  name: string
-  location: string
-  orientation: "horizontal" | "vertical"
-  status: "online" | "offline"
-  lastSeen: timestamp
-  currentVideoId: string | null
-  currentVideoTitle: string | null
-  playlistId: string | null
-  registeredAt: timestamp
-
-playlists/{playlistId}
-  firmId: string
-  name: string
-  items: [{ videoId: string, order: number, durationOverride: null }]
-  createdAt: timestamp
-  updatedAt: timestamp
-```
-
----
-
-## Güvenlik Kuralları (Mevcut)
-
-### firestore.rules
-```
-firms, videos, playlists:
-  read:  request.auth != null
-  write: request.auth != null && request.auth.token.email != null
-
-screens:
-  read:   request.auth != null
-  create: request.auth != null                          // player ekran kaydedebilir
-  update: request.auth != null &&
-    (email != null ||                                   // admin her alanı güncelleyebilir
-     affectedKeys.hasOnly([                             // player sadece heartbeat alanlarını
-       'lastSeen','status','currentVideoId','currentVideoTitle']))
-  delete: email != null
-```
-
-### storage.rules
-```
-videos/**, thumbnails/**:
-  read:  request.auth != null
-  write: request.auth != null && request.auth.token.email != null
-```
-
----
-
-## Dashboard Sayfaları
-
-| Sayfa | Veri | Özellikler |
-|-------|------|-----------|
-| Genel Bakış | onSnapshot (screens + videos) | 4 metrik kart, ekran durumu tablosu |
-| Ekranlar | onSnapshot (screens) | Playlist atama, düzenle, sil, yeni ekran |
-| İçerikler | getDocs (videos) | Upload modal, filtreler, toggle, sil |
-| Playlist'ler | getDocs (playlists) | CRUD modal, ↑↓ sıralama, bağımlılık kontrol |
-| Ayarlar | onSnapshot (firms) | Firma CRUD, şifre değiştirme |
 
 ---
 
 ## Kod Kuralları
-
-- Tüm Firestore işlemleri `try/catch` içinde → hata: `showToast(msg, "error")`
-- Kullanıcı verisi DOM'a `esc()` ile yazılır (XSS koruması)
+- Supabase işlemlerinde `error` objesi kontrol edilmelidir.
 - Silme işlemleri `confirm()` dialog sonrası
-- Tarih/saat: `toLocaleDateString('tr-TR')` ve `toLocaleTimeString('tr-TR')`
-- Sayfa geçişinde `unsubscribers[pageId]()` ile listener temizlenir
-- `isUploading = true/false` upload sırasında modal kapanmasını engeller
-
----
-
-## Geliştirme Ortamı
-
-```bash
-firebase emulators:start    # Auth:9099, Firestore:8080, Storage:9199, Hosting:5000
-node seed-emulator.mjs      # Admin user + 4 firma + 2 ekran + 1 playlist
-node test-upload.mjs        # 01.mp4 + 02.mp4 → Nethouse firmasına yükle
-# http://127.0.0.1:5000 → admin@netonline.com / admin123
-```
+- Hata çıktıları toast üzerinden `showToast(msg, "error")` yapısıyla gösterilmelidir.
 
 ---
 
@@ -191,4 +131,4 @@ node test-upload.mjs        # 01.mp4 + 02.mp4 → Nethouse firmasına yükle
 
 `docs/CHANGELOG.md` **her kod değişikliğinde güncellenmelidir.**
 Sürümleme: `MAJOR.MINOR.PATCH` (Anlamsal Sürümleme)
-**Mevcut sürüm: v2.1.0**
+**Mevcut sürüm: v2.2.0**
