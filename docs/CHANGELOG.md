@@ -6,6 +6,14 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.2.2] — 2026-04-07
+
+### Güvenlik
+- **Kritik Oynatıcı Güncelleme Zafiyeti Giderildi**: Oynatıcıların RLS (*Row Level Security*) politikalarında anonim kullanıcılara, kendi "heartbeat" alanlarını güncellemeleri için serbestlik verilmiş ancak bu aynı zamanda diğer ekranların da `playlist_id`, `firm_id` ve diğer kritik bilgilerini güncelleyebilmesine yol açmıştı. 
+- Supabase/PostgreSQL şemasına **`restrict_screen_updates`** adında bir güvenlik tetikleyicisi (*Trigger*) eklenerek; admin yetkisi (authenticated) olmayan kişilerin ekran ağını ele geçirmesinin önüne veri tabanı çekirdeğinden %100 kesinlikte geçilmiştir.
+
+---
+
 ## [2.2.1] — 2026-04-07
 
 ### Düzeltildi

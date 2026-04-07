@@ -1,6 +1,6 @@
 # NetOnline Digital Signage
 
-**Sürüm:** v2.2.1 (Depolama Uyumluluk ve Şema Güncellemesi)
+**Sürüm:** v2.2.2 (Sıfırıncı Gün Güvenlik Yaması)
 
 TV ekranlarında merkezi video yönetimi sağlayan, çok müşterili (multi-tenant) ajans modelini destekleyen web tabanlı bir **Digital Signage** sistemidir.
 
@@ -76,4 +76,4 @@ server {
 
 ---
 
-*Geliştiren: NetOnline Ekibi — v2.2.1*
+*Geliştiren: NetOnline Ekibi — v2.2.2*

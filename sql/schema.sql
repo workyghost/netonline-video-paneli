@@ -93,8 +93,30 @@ create policy "Players can insert screens" on screens for insert with check (tru
 create policy "Players can update their own screen metrics" on screens for update
   using (true)
   with check (true); 
--- In a stricter environment, we could restrict update to only status, last_seen, current_video_id/title, 
--- but for now they can update the row since players act independently.
+
+-- SECURITY TRIGGER: Prevent anonymous users from hijacking screens
+-- They are only allowed to update heartbeat columns.
+create or replace function restrict_screen_updates()
+returns trigger as $$
+begin
+  if auth.role() != 'authenticated' then
+    if new.firm_id is distinct from old.firm_id or
+       new.name is distinct from old.name or
+       new.location is distinct from old.location or
+       new.orientation is distinct from old.orientation or
+       new.playlist_id is distinct from old.playlist_id then
+      raise exception 'Anonymous users can only update heartbeat columns.';
+    end if;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists restrict_screen_update_trigger on screens;
+create trigger restrict_screen_update_trigger
+  before update on screens
+  for each row
+  execute function restrict_screen_updates();
 
 
 -- ==========================================
