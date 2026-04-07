@@ -34,53 +34,26 @@ NetOnline Digital Signage, "Server-less Frontend" felsefesiyle tasarlanmıştır
 
 Bu sistem, hem **Supabase Cloud** üzerinde hem de kendi **VPS** sunucunuzdaki **self-hosted Supabase** örnekleri üzerinde çalışabilir.
 
-### 1. Adım: Veritabanı ve Şema Kurulumu
-1.  Supabase arayüzündeki (Cloud veya Self-hosted) **SQL Editor** bölümüne gidin.
-2.  Proje kök dizinindeki `sql/schema.sql` dosyasının içeriğini kopyalayıp buraya yapıştırın ve çalıştırın. Bu işlem tabloları, RLS kurallarını ve realtime replikasyon ayarlarını yapacaktır.
-3.  Test verileri isterseniz `sql/seed.sql` dosyasını çalıştırabilirsiniz.
+### Mimarisi ve Gelecek Vizyonu
 
-### 2. Adım: Medya Depolama Ayarı
-1.  Supabase panelindeki **Storage** sekmesine gidin.
-2.  `digital-signage` isminde yeni bir **public** bucket oluşturun. (Bu isim `schema.sql` içerisindeki RLS kuralları ile uyumlu olmalıdır).
+Sistem, bakım maliyetlerini en aza indiren ve performansı maksimize eden modern bir **Server-less Frontend** mimarisi kullanır. Sunucu tarafında ağır backend dillerine veya framework'lere (Next.js, Node vb.) ihtiyaç duymaz. Doğrudan tarayıcı (client) üzerinden güvenli bir şekilde Supabase (PostgreSQL) veritabanına bağlanır.
 
-### 3. Adım: Uygulama Konfigürasyonu
-1.  Repo ana dizininde bulunan **`js/supabase-config.example.js`** dosyasını kopyalayarak yenisini oluşturun ve adını **`js/supabase-config.js`** yapın.
-2.  Buraya Supabase instance'ınızın URL ve Anon Key değerlerini girin:
-    -   *Self-hosted VPS kullanıyorsanız, buraya sunucunuzun IP/Domain adresini ve oluşturduğunuz anahtarları yazmalısınız.*
-    -   *NOT: `.gitignore` dosyası güvenlik sebebiyle `supabase-config.js` in depoya aktarılmasını engeller, anahtarlarınız VPS inizde/lokal bilgisayarınızda gizli kalır.*
+### Profesyonel Güvenlik Felsefesi
+Projeyi barındıran mimarimiz, tamamen bulut tabanlı bir RLS (*Row Level Security*) kalkanı ile korunmaktadır. API anahtarlarımız yalnızca ortam değişkenleri üzerinden (CI/CD hatlarında enjekte edilmek şartıyla) sistemle ilişkilendirilir ve repolar üzerinden kesinlikle ulu orta barındırılmaz. Veritabanının detaylı `SQL Şeması`, güvenlik trigger'ları ve mimari kurguları tamamen kapalı devre bir şirket IP (Intellectual Property - Fikri Mülkiyet) kuralına bağlanarak Github/Public ağlardan izole edilmiştir.
 
-### 4. Adım: VPS Üzerine Dağıtım (Nginx)
-Proje tamamen statik dosyalardan oluştuğu için dosyaları VPS üzerindeki bir dizine (örn: `/var/www/netonline`) kopyalamanız ve bir NGINX bloğu ile servis etmeniz yeterlidir. Sürüm 2.2.3 ile güvenlik başlıkları (Security Headers) zorunlu kılınmıştır.
-
-**Örnek Nginx Bloğu (Güvenlik Korumalı):**
-```nginx
-server {
-    listen 80;
-    server_name panel.senin-domainin.com;
-    root /var/www/netonline;
-    index index.html;
-
-    # GÜVENLİK BAŞLIKLARI
-    add_header X-Frame-Options "DENY" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Content-Security-Policy "upgrade-insecure-requests;" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-}
-```
+### Teknolojik Altyapı
+- **UI & Stil:** Saf (Vanilla) HTML/JS ve TailwindCSS. (Framework yok, saf performans).
+- **Backend & Auth:** Supabase (PostgreSQL Data, Auth Yönetimi ve RLS Kuralları).
+- **Veri Barındırma:** Supabase Storage.
+- **Gerçek Zamanlılık:** Supabase Realtime (WebSocket bağlantıları ile saniyesinde ekran güncellemeleri).
 
 ---
 
-## 4. Kullanım Rehberi
+*Geliştiren: NetOnline Ekibi — v2.2.3*
 
 1.  **Giriş:** `index.html` üzerinden yönetici e-posta ve şifrenizle giriş yapın.
 2.  **Yönetim (Dashboard):** Ekranlar, Videolar ve Playlistler sekmelerini kullanarak içeriklerinizi yönetin.
 3.  **TV Kurulumu (Player):** Yeni bir TV/Ekran cihazında `player.html` dosyasını açın. Setup ekranında firmayı ve ekran adını seçip kaydedin. Ekran bir kez kayıt olduktan sonra sistem ID'sini hatırlar ve yönetici panelinden atanan içerikleri otomatik oynatmaya başlar.
 4.  **Cihaz Takibi:** Dashboard'daki "Ekranlar" sayfasından TV'lerin çevrimiçi/çevrimdışı (online/offline) durumlarını gerçek zamanlı takip edebilirsiniz.
-
----
 
 *Geliştiren: NetOnline Ekibi — v2.2.3*

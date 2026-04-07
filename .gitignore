@@ -29,5 +29,6 @@ Thumbs.db
 # Geliştirme notları (FAZ prompt dosyaları)
 FAZ*.md
 
-# Güvenlik (Çevresel Değişkenler)
+# Güvenlik (Çevresel Değişkenler ve Veritabanı Mimarisi)
 js/supabase-config.js
+sql/
