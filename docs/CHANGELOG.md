@@ -6,6 +6,15 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.2.3] — 2026-04-07
+
+### Güvenlik & Mimari Düzeltmeler
+- **Depolanan Supabase Anahtarları Temizliği (Kritik)**: Daha önceden `.gitignore` de unutulan `supabase-config.js` doyası Github takip sisteminden temizlendi (`git rm --cached`). Artık API anahtarları asla repoya aktarılmayacak; kurulum referansı olması için `supabase-config.example.js` eklendi. (Readme adımları buna göre güncellendi).
+- **Yalan Beyan Giderildi (CSP Etiketleri)**: Eski changelog versiyonlarında eklendiği söylenen ama HTML'lerde unutulan `Content-Security-Policy` etiketleri `dashboard.html` ve `index.html` e eklendi.
+- **Nginx Kılavuzu İyileştirildi**: VPS Nginx sunucu yapılandırması aşırı savunmasızdı; `README.md` içerisindeki Nginx bloğuna `X-Frame-Options`, `X-Content-Type-Options` gibi zorunlu header'lar eklendi.
+
+---
+
 ## [2.2.2] — 2026-04-07
 
 ### Güvenlik

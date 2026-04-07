@@ -1,6 +1,6 @@
 # NetOnline Digital Signage
 
-**Sürüm:** v2.2.2 (Sıfırıncı Gün Güvenlik Yaması)
+**Sürüm:** v2.2.3 (Mimari Hata ve Kapsamlı Güvenlik Temizliği)
 
 TV ekranlarında merkezi video yönetimi sağlayan, çok müşterili (multi-tenant) ajans modelini destekleyen web tabanlı bir **Digital Signage** sistemidir.
 
@@ -44,20 +44,27 @@ Bu sistem, hem **Supabase Cloud** üzerinde hem de kendi **VPS** sunucunuzdaki *
 2.  `digital-signage` isminde yeni bir **public** bucket oluşturun. (Bu isim `schema.sql` içerisindeki RLS kuralları ile uyumlu olmalıdır).
 
 ### 3. Adım: Uygulama Konfigürasyonu
-1.  `js/supabase-config.js` dosyasını açın.
+1.  Repo ana dizininde bulunan **`js/supabase-config.example.js`** dosyasını kopyalayarak yenisini oluşturun ve adını **`js/supabase-config.js`** yapın.
 2.  Buraya Supabase instance'ınızın URL ve Anon Key değerlerini girin:
     -   *Self-hosted VPS kullanıyorsanız, buraya sunucunuzun IP/Domain adresini ve oluşturduğunuz anahtarları yazmalısınız.*
+    -   *NOT: `.gitignore` dosyası güvenlik sebebiyle `supabase-config.js` in depoya aktarılmasını engeller, anahtarlarınız VPS inizde/lokal bilgisayarınızda gizli kalır.*
 
 ### 4. Adım: VPS Üzerine Dağıtım (Nginx)
-Proje tamamen statik dosyalardan oluştuğu için dosyaları VPS üzerindeki bir dizine (örn: `/var/www/netonline`) kopyalamanız ve bir NGINX bloğu ile servis etmeniz yeterlidir.
+Proje tamamen statik dosyalardan oluştuğu için dosyaları VPS üzerindeki bir dizine (örn: `/var/www/netonline`) kopyalamanız ve bir NGINX bloğu ile servis etmeniz yeterlidir. Sürüm 2.2.3 ile güvenlik başlıkları (Security Headers) zorunlu kılınmıştır.
 
-**Örnek Nginx Bloğu:**
+**Örnek Nginx Bloğu (Güvenlik Korumalı):**
 ```nginx
 server {
     listen 80;
     server_name panel.senin-domainin.com;
     root /var/www/netonline;
     index index.html;
+
+    # GÜVENLİK BAŞLIKLARI
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Content-Security-Policy "upgrade-insecure-requests;" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
     location / {
         try_files $uri $uri/ /index.html;
@@ -76,4 +83,4 @@ server {
 
 ---
 
-*Geliştiren: NetOnline Ekibi — v2.2.2*
+*Geliştiren: NetOnline Ekibi — v2.2.3*

@@ -1,8 +1,8 @@
-// js/supabase-config.js
+// js/supabase-config.example.js
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-const SUPABASE_URL = "https://your-project-id.supabase.co"; // TODO: Projenizin Supabase URL'sini girin
-const SUPABASE_ANON_KEY = "your-anon-key"; // TODO: Projenizin Supabase ANON KEY'ini girin
+const SUPABASE_URL = "BURAYA_KENDI_SUPABASE_URL_NIZI_GIRIN";
+const SUPABASE_ANON_KEY = "BURAYA_KENDI_SUPABASE_ANON_KEY_NIZI_GIRIN";
 
 // Ana istemci (Admin/Dashboard)
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

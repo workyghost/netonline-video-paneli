@@ -5,7 +5,7 @@
 TV ekranlarında merkezi video yönetimi sağlayan **Digital Signage** sistemi.
 Çok müşterili ajans modeli: firmalar dashboard üzerinden dinamik olarak yönetilir.
 
-**Mevcut sürüm:** v2.2.2 (kararlı, prodüksiyona hazır)
+**Mevcut sürüm:** v2.2.3 (kararlı, prodüksiyona hazır, mimari sorunları giderilmiş)
 
 ---
 
@@ -131,4 +131,4 @@ playlists
 
 `docs/CHANGELOG.md` **her kod değişikliğinde güncellenmelidir.**
 Sürümleme: `MAJOR.MINOR.PATCH` (Anlamsal Sürümleme)
-**Mevcut sürüm: v2.2.2**
+**Mevcut sürüm: v2.2.3**
