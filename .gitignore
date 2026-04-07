@@ -32,3 +32,6 @@ FAZ*.md
 # Güvenlik (Çevresel Değişkenler ve Veritabanı Mimarisi)
 js/supabase-config.js
 sql/
+
+# Gizli Kurulum Rehberi
+vps-kurulum.html
