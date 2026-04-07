@@ -1,6 +1,6 @@
 # NetOnline Digital Signage
 
-**Sürüm:** v2.2.3 (Mimari Hata ve Kapsamlı Güvenlik Temizliği)
+**Sürüm:** v2.2.4 (Anonim API Kararlılığı ve CI/CD Geliştirmesi)
 
 TV ekranlarında merkezi video yönetimi sağlayan, çok müşterili (multi-tenant) ajans modelini destekleyen web tabanlı bir **Digital Signage** sistemidir.
 
@@ -49,11 +49,11 @@ Projeyi barındıran mimarimiz, tamamen bulut tabanlı bir RLS (*Row Level Secur
 
 ---
 
-*Geliştiren: NetOnline Ekibi — v2.2.3*
+*Geliştiren: NetOnline Ekibi — v2.2.4*
 
 1.  **Giriş:** `index.html` üzerinden yönetici e-posta ve şifrenizle giriş yapın.
 2.  **Yönetim (Dashboard):** Ekranlar, Videolar ve Playlistler sekmelerini kullanarak içeriklerinizi yönetin.
 3.  **TV Kurulumu (Player):** Yeni bir TV/Ekran cihazında `player.html` dosyasını açın. Setup ekranında firmayı ve ekran adını seçip kaydedin. Ekran bir kez kayıt olduktan sonra sistem ID'sini hatırlar ve yönetici panelinden atanan içerikleri otomatik oynatmaya başlar.
 4.  **Cihaz Takibi:** Dashboard'daki "Ekranlar" sayfasından TV'lerin çevrimiçi/çevrimdışı (online/offline) durumlarını gerçek zamanlı takip edebilirsiniz.
 
-*Geliştiren: NetOnline Ekibi — v2.2.3*
+*Geliştiren: NetOnline Ekibi — v2.2.4*

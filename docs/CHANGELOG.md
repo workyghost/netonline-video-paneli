@@ -6,6 +6,13 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.2.4] — 2026-04-07
+
+### Değiştirildi
+- **Mimari Yaygınlaştırma (.gitignore):** `js/supabase-config.js` dosyası üzerindeki `.gitignore` kısıtlaması kaldırıldı. Anon Key'in (Anonim Anahtarın) istemci (client) kodunda barındırılmasının güvenlik zafiyeti yaratmadığı (RLS kurallarıyla korunduğu) teyit edilerek projenin Github üzerinden VPS ortamlarına kolay taşınabilmesi sağlandı.
+
+---
+
 ## [2.2.3] — 2026-04-07
 
 ### Güvenlik & Mimari Düzeltmeler
