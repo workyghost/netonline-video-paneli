@@ -6,6 +6,19 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.2.6] — 2026-04-08
+
+### Düzeltildi
+- **Login Sonrası Otomatik Yönlendirme**: Giriş başarılı olunca `dashboard.html` sayfasına doğrudan yönlendirme eklendi; artık tekrar tıklamaya gerek yok.
+- **Firma Ekleme Kesin Düzeltme**: `.select().single()` zinciri kaldırıldı (bazı self-hosted Supabase versiyonlarında hata üretiyordu). Artık insert sonrası liste veritabanından yeniden yükleniyor.
+- **RLS Politikaları**: `auth.role()` yerine `auth.uid() IS NOT NULL` kullanılarak self-hosted Supabase uyumluluğu sağlandı. Her işlem (SELECT/INSERT/UPDATE/DELETE) için ayrı politika ve `WITH CHECK` eklendi.
+- **fetchFirms Global Map Senkronizasyonu**: `fetchFirms` artık `firmsMap` global state'ini de güncelliyor; firma listesiyle diğer sayfaların senkronize kalması garantilendi.
+
+### Güncellendi
+- `sql/schema.sql`: Yeni RLS politika yapısıyla güncellendi.
+
+---
+
 ## [2.2.5] — 2026-04-08
 
 ### Düzeltildi

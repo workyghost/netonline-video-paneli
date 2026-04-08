@@ -55,6 +55,6 @@ loginForm.addEventListener("submit", async (e) => {
     showError(error.message === "Invalid login credentials" ? "E-posta veya şifre hatalı." : error.message);
     setLoading(false);
   } else {
-    // onAuthStateChange tetiklenip dashboard'a yönlendirecek
+    window.location.href = "dashboard.html";
   }
 });

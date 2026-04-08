@@ -1224,7 +1224,10 @@ function initSettings() {
   // ---- Firma yönetimi ----
   const fetchFirms = async () => {
     const { data: firms, error } = await supabase.from("firms").select("*");
-    if (error) { showToast("Firmalar yüklenemedi: " + error.message, "error"); return; }
+    if (error) { showToast("Firmalar yüklenemedi: " + error.message, "error"); console.error("fetchFirms error:", error); return; }
+    // Global firmsMap'i de güncelle (diğer sayfalarda firma adları güncel kalsın)
+    firmsMap.clear();
+    (firms || []).forEach(d => firmsMap.set(d.id, d.name));
     const container = document.getElementById("firms-list");
     if (!container) return;
     container.innerHTML = "";
@@ -1302,13 +1305,13 @@ function initSettings() {
     const btn = document.getElementById("btn-add-firm");
     btn.disabled = true;
     try {
-      const { data, error } = await supabase.from("firms").insert([{ name, created_at: new Date().toISOString() }]).select().single();
+      const { error } = await supabase.from("firms").insert({ name });
       if (error) throw error;
-      firmsMap.set(data.id, name);
       input.value = "";
       showToast("Firma eklendi");
       await fetchFirms();
     } catch (e) {
+      console.error("Firma insert error:", e);
       showToast("Eklenemedi: " + e.message, "error");
     } finally {
       btn.disabled = false;
