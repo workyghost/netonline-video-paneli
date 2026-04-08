@@ -6,6 +6,18 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.2.5] — 2026-04-08
+
+### Düzeltildi
+- **Firma Ekleme Çalışmıyor**: Ayarlar sayfasında firma ekle butonuna basılınca liste güncellenmiyordu. Realtime subscription'a ek olarak insert/delete sonrası `fetchFirms()` doğrudan çağrılarak güncelleme garantisi sağlandı.
+- **Şifre Değiştirmede Mevcut Şifre Doğrulanmıyordu**: "Mevcut Şifre" alanı arayüzde bulunmasına karşın sunucu tarafında doğrulanmıyordu. Artık `signInWithPassword` ile mevcut şifre doğrulanıyor; hatalı girişte açık hata mesajı gösteriliyor.
+
+### Eklendi
+- **Overview Firma Uyarısı**: Henüz hiç firma eklenmemişse Genel Bakış sayfasında sarı uyarı banner'ı görünür. Banner, Ayarlar sayfasına doğrudan bağlantı içerir ve firma eklendiğinde otomatik kaybolur.
+- **Firma Silme Sonrası Anlık Liste Yenileme**: Firma silindikten sonra liste Realtime'a bağlı kalmaksızın anında güncellenir.
+
+---
+
 ## [2.2.4] — 2026-04-07
 
 ### Değiştirildi

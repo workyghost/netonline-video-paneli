@@ -254,8 +254,27 @@ function initOverview() {
     if (os) os.textContent = online;
   };
 
+  const renderNoFirmsBanner = () => {
+    const existing = document.getElementById("no-firms-banner");
+    if (firmsMap.size === 0) {
+      if (!existing) {
+        const banner = document.createElement("div");
+        banner.id = "no-firms-banner";
+        banner.className = "mb-4 flex items-center gap-3 bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-sm rounded-xl px-4 py-3";
+        banner.innerHTML = `
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+          <span>Henüz hiç firma eklenmedi. <button class="underline hover:text-yellow-300 transition-colors" onclick="document.querySelector('[data-page=settings]').click()">Ayarlar</button> sayfasından firma ekleyebilirsiniz.</span>
+        `;
+        el.insertBefore(banner, el.firstChild);
+      }
+    } else {
+      existing?.remove();
+    }
+  };
+
   fetchVideosCount();
   fetchScreens();
+  renderNoFirmsBanner();
 
   const unsubVideos = supabase.channel("public:videos_overview")
     .on("postgres_changes", { event: "*", schema: "public", table: "videos" }, fetchVideosCount)
@@ -1205,7 +1224,7 @@ function initSettings() {
   // ---- Firma yönetimi ----
   const fetchFirms = async () => {
     const { data: firms, error } = await supabase.from("firms").select("*");
-    if (error) return;
+    if (error) { showToast("Firmalar yüklenemedi: " + error.message, "error"); return; }
     const container = document.getElementById("firms-list");
     if (!container) return;
     container.innerHTML = "";
@@ -1263,6 +1282,7 @@ function initSettings() {
           if (error) throw error;
           firmsMap.delete(firmId);
           showToast("Firma silindi");
+          await fetchFirms();
         } catch (e) {
           showToast("Silinemedi: " + e.message, "error");
         }
@@ -1279,14 +1299,19 @@ function initSettings() {
     const input = document.getElementById("new-firm-input");
     const name  = input.value.trim();
     if (!name) return;
+    const btn = document.getElementById("btn-add-firm");
+    btn.disabled = true;
     try {
       const { data, error } = await supabase.from("firms").insert([{ name, created_at: new Date().toISOString() }]).select().single();
       if (error) throw error;
       firmsMap.set(data.id, name);
       input.value = "";
       showToast("Firma eklendi");
+      await fetchFirms();
     } catch (e) {
       showToast("Eklenemedi: " + e.message, "error");
+    } finally {
+      btn.disabled = false;
     }
   });
 
@@ -1308,9 +1333,21 @@ function initSettings() {
     }
     errEl.classList.add("hidden");
     const btn = document.getElementById("btn-change-pw");
-    btn.disabled = true; btn.textContent = "Güncelleniyor...";
+    btn.disabled = true; btn.textContent = "Doğrulanıyor...";
 
     try {
+      // Mevcut şifreyi doğrula
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: currentUser.email,
+        password: current
+      });
+      if (signInError) {
+        errEl.textContent = "Mevcut şifre yanlış.";
+        errEl.classList.remove("hidden");
+        btn.disabled = false; btn.textContent = "Şifreyi Güncelle";
+        return;
+      }
+      btn.textContent = "Güncelleniyor...";
       const { error } = await supabase.auth.updateUser({ password: newPw });
       if (error) throw error;
       document.getElementById("pw-current").value = "";
