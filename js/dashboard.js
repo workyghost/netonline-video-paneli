@@ -11,20 +11,16 @@ let currentUser   = null;
 let isUploading   = false;     // blocks modal close during upload
 
 // ========== AUTH ==========
-supabase.auth.onAuthStateChange(async (event, session) => {
+// NOT: onAuthStateChange içinden asla supabase DB sorgusu çağırmayın —
+// Supabase JS v2 auth callback'i session lock tutarken çağrılır,
+// DB sorgusu da aynı lock'ı almaya çalışır → deadlock.
+supabase.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_OUT' || !session) {
     window.location.href = "index.html";
-    return;
-  }
-  if (session && session.user) {
-    currentUser = session.user;
-    document.getElementById("user-email").textContent = currentUser.email;
-    await loadFirmsMap();
-    if (currentPage === "overview") showPage("overview");
   }
 });
 
-// Initial check
+// Initial check — getSession lock dışında çalışır, DB sorgusu güvenli
 supabase.auth.getSession().then(async ({ data: { session } }) => {
   if (!session) {
     window.location.href = "index.html";

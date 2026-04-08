@@ -6,6 +6,13 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.2.7] — 2026-04-08
+
+### Kritik Düzeltme
+- **Firma Ekleme/Listeleme Deadlock Giderildi**: Supabase JS v2'de `onAuthStateChange` callback'i çalışırken session lock tutulur. Bu callback içinden `supabase.from(...).select()` gibi DB sorgusu yapılması lock'u deadlock'a sokarak isteğin hiçbir zaman sunucuya ulaşmamasına neden oluyordu. `loadFirmsMap()` çağrısı `onAuthStateChange`'den kaldırılıp yalnızca `getSession().then()` içinde bırakıldı. Bu düzeltme VPS üzerindeki firma ekleme/görmeme sorununu da çözüyor.
+
+---
+
 ## [2.2.6] — 2026-04-08
 
 ### Düzeltildi

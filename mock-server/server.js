@@ -13,7 +13,14 @@ const wss    = new WebSocket.Server({ server, path: '/realtime/v1/websocket' });
 
 const PORT       = 3001;
 const JWT_SECRET = 'local-test-secret-32chars-minimum!';
-const ANON_KEY   = 'local-anon-key';
+
+// b64u: base64url encode helper (JWT için)
+const b64u = (str) => Buffer.from(str).toString('base64url');
+
+// Anon key: geçerli JWT formatında (Supabase JS bunu decode etmeye çalışır)
+const _ah = b64u(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+const _ap = b64u(JSON.stringify({ role: 'anon', iss: 'supabase-local', iat: 1641769200, exp: 9999999999 }));
+const ANON_KEY = `${_ah}.${_ap}.${crypto.createHmac('sha256', JWT_SECRET).update(`${_ah}.${_ap}`).digest('base64url')}`;
 
 // ── CORS & JSON ──────────────────────────────────────────────────
 app.use((req, res, next) => {
@@ -25,6 +32,12 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json());
+
+// Tüm istekleri logla
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString().slice(11,19)} ${req.method} ${req.url}`);
+  next();
+});
 
 // ── IN-MEMORY DB ─────────────────────────────────────────────────
 const db = { firms: [], videos: [], screens: [], playlists: [] };
@@ -54,7 +67,6 @@ function verifyToken(token) {
   } catch { return null; }
 }
 
-function b64u(str) { return Buffer.from(str).toString('base64url'); }
 
 function getAuth(req) {
   const auth = req.headers.authorization || '';
@@ -84,10 +96,12 @@ app.post('/auth/v1/token', (req, res) => {
 
 function makeSession(user) {
   const token = makeToken(user.id, user.email);
+  const expiresIn = 86400;
   return {
     access_token: token,
     token_type: 'bearer',
-    expires_in: 86400,
+    expires_in: expiresIn,
+    expires_at: Math.floor(Date.now() / 1000) + expiresIn,
     refresh_token: uuid(),
     user: buildUser(user)
   };
@@ -243,6 +257,9 @@ wss.on('connection', (ws) => {
   });
   ws.on('error', () => {});
 });
+
+// Anon key endpoint (supabase-config.js için)
+app.get('/local-anon-key', (req, res) => res.json({ key: ANON_KEY }));
 
 // ── STATIC FILES (projeyi de serve et) ───────────────────────────
 const projectRoot = path.join(__dirname, '..');
