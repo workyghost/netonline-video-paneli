@@ -22,6 +22,10 @@ firebase-export-*/
 # Node (firebase-tools global kullanılıyor ama yine de)
 node_modules/
 
+# Mock server (sadece lokal test için)
+mock-server/node_modules/
+mock-server/package-lock.json
+
 # OS
 .DS_Store
 Thumbs.db
