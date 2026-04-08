@@ -1,6 +1,6 @@
 # NetOnline Digital Signage
 
-**Sürüm:** v2.2.3 (Mimari Hata ve Kapsamlı Güvenlik Temizliği)
+**Sürüm:** v2.2.7
 
 TV ekranlarında merkezi video yönetimi sağlayan, çok müşterili (multi-tenant) ajans modelini destekleyen web tabanlı bir **Digital Signage** sistemidir.
 
