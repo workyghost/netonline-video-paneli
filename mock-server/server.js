@@ -5,7 +5,14 @@ const express = require('express');
 const http    = require('http');
 const crypto  = require('crypto');
 const path    = require('path');
+const fs      = require('fs');
+const os      = require('os');
 const WebSocket = require('ws');
+
+// Video dosyaları için geçici disk dizini — her sunucu başlatmada sıfırlanır
+const TEMP_STORAGE = path.join(os.tmpdir(), 'netonline-mock-storage');
+if (fs.existsSync(TEMP_STORAGE)) fs.rmSync(TEMP_STORAGE, { recursive: true, force: true });
+fs.mkdirSync(TEMP_STORAGE, { recursive: true });
 
 const app    = express();
 const server = http.createServer(app);
@@ -292,33 +299,68 @@ function parsePath(params) {
 app.post('/storage/v1/object/*path', async (req, res) => {
   const storagePath = parsePath(req.params);
   const contentType = req.headers['content-type'] || 'application/octet-stream';
-  const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(storagePath);
+  const isImg = /\.(jpg|jpeg|png|webp|gif)$/i.test(storagePath);
 
-  const chunks = [];
-  req.on('data', chunk => {
-    if (isImage) chunks.push(chunk); // Video gibi büyük dosyaları belleğe alma
-  });
-  req.on('end', () => {
-    if (isImage && chunks.length > 0) {
+  if (isImg) {
+    // Görseller belleğe alınır (küçük dosyalar)
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => {
       const buf = Buffer.concat(chunks);
       storageFiles.set(storagePath, { buffer: buf, contentType: 'image/jpeg' });
       console.log(`📦 Storage upload (image): ${storagePath} (${buf.length} bytes)`);
-    } else {
-      console.log(`📦 Storage upload (video, drained): ${storagePath}`);
-    }
-    res.status(200).json({ Key: storagePath, Id: uuid() });
-  });
-  req.on('error', () => res.status(500).json({ error: 'upload failed' }));
+      res.status(200).json({ Key: storagePath, Id: uuid() });
+    });
+    req.on('error', () => res.status(500).json({ error: 'upload failed' }));
+  } else {
+    // Videolar ve diğer büyük dosyalar diske yazılır
+    const safeName = storagePath.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const diskPath = path.join(TEMP_STORAGE, safeName);
+    const writeStream = fs.createWriteStream(diskPath);
+    req.pipe(writeStream);
+    writeStream.on('finish', () => {
+      const size = fs.statSync(diskPath).size;
+      storageFiles.set(storagePath, { diskPath, contentType });
+      console.log(`📦 Storage upload (disk): ${storagePath} (${(size/1024/1024).toFixed(1)} MB)`);
+      res.status(200).json({ Key: storagePath, Id: uuid() });
+    });
+    writeStream.on('error', () => res.status(500).json({ error: 'upload failed' }));
+    req.on('error', () => writeStream.destroy());
+  }
 });
 
 // Dosya indirme: GET /storage/v1/object/public/{bucket}/{path}
 app.get('/storage/v1/object/public/*path', (req, res) => {
   const storagePath = parsePath(req.params);
   const stored = storageFiles.get(storagePath);
+
   if (stored) {
+    if (stored.diskPath) {
+      // Diskten serve et — Range request desteği (video seeking için gerekli)
+      const stat = fs.statSync(stored.diskPath);
+      const range = req.headers.range;
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Content-Type', stored.contentType);
+      if (range) {
+        const [startStr, endStr] = range.replace(/bytes=/, '').split('-');
+        const start = parseInt(startStr, 10);
+        const end   = endStr ? parseInt(endStr, 10) : stat.size - 1;
+        res.writeHead(206, {
+          'Content-Range':  `bytes ${start}-${end}/${stat.size}`,
+          'Content-Length': end - start + 1,
+        });
+        fs.createReadStream(stored.diskPath, { start, end }).pipe(res);
+      } else {
+        res.setHeader('Content-Length', stat.size);
+        fs.createReadStream(stored.diskPath).pipe(res);
+      }
+      return;
+    }
+    // Bellekteki dosya (görsel)
     res.setHeader('Content-Type', stored.contentType);
     return res.send(stored.buffer);
   }
+
   // Kayıtlı dosya yok — görsel için placeholder PNG dön
   if (/\.(jpg|jpeg|png|webp|gif)$/i.test(storagePath)) {
     res.setHeader('Content-Type', 'image/png');
