@@ -1,6 +1,6 @@
 # NetOnline Digital Signage
 
-**Sürüm:** v2.2.7
+**Sürüm:** v2.3.1
 
 TV ekranlarında merkezi video yönetimi sağlayan, çok müşterili (multi-tenant) ajans modelini destekleyen web tabanlı bir **Digital Signage** sistemidir.
 
@@ -25,7 +25,7 @@ NetOnline Digital Signage, "Server-less Frontend" felsefesiyle tasarlanmıştır
 | **Arayüz (Frontend)** | Vanilla Javascript (ES6+), HTML5, CSS3, TailwindCSS (CDN)                 |
 | **Kimlik Doğrulama** | Supabase Auth (E-posta/Şifre - Admin, Anonim Auth - Player)              |
 | **Veritabanı**      | PostgreSQL via Supabase (Realtime Subscriptions)                          |
-| **Medya Depolama**  | Supabase Storage (Public bucket: `digital-signage`)                      |
+| **Medya Depolama**  | Supabase Storage (Public bucket: `digital-signage`) — MP4, JPG, PNG     |
 | **Host/Sunucu**     | Herhangi bir Statik Web Sunucusu (Nginx, Apache, vb. VPS üzerinde)         |
 
 ---

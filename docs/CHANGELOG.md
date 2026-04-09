@@ -9,12 +9,14 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 ## [2.3.1] — 2026-04-09
 
 ### Yeni Özellikler
-- **Görsel desteği**: JPG/PNG içerik yüklenebilir ve player'da 30 saniye görüntülenir (blur background ile)
-- **Kalıcı error toast**: Hata mesajları manuel kapatılana kadar ekranda kalır (✕ butonu); başarı mesajları 3.5s sonra kaybolur
+- **Görsel desteği (JPG/PNG)**: Dashboard'dan görsel yüklenebilir; player'da blur background ile tam ekran 30 saniye gösterilir. Link modunda sayaç overlay kapatıldıktan sonra başlar.
+- **Kalıcı error toast**: Hata mesajları ✕ butonuyla kapatılana kadar ekranda kalır; başarı mesajları 3.5s sonra otomatik kapanır.
 
 ### İyileştirmeler
-- **Orientation (Yön) kaldırıldı**: Tüm formlar, filtreler ve tablo sütunlarından yön alanı çıkarıldı; player tüm aktif içerikleri oynatır
-- **Ekranlar listesi**: Yeni ekran eklenince/düzenlenince liste anında güncellenir (yenileme gerekmez)
+- **Orientation (Yön) kaldırıldı**: Upload formu, içerik filtresi, ekranlar tablosu ve tüm modallardan yön alanı kaldırıldı. Player tüm aktif içerikleri oynatur; blur fill farklı en/boy oranlarını otomatik doldurur.
+- **Ekranlar listesi anlık güncelleme**: Ekran eklenince/düzenlenince liste sayfa yenilemesine gerek kalmadan anında güncellenir.
+- **Büyük video oynatma düzeltmesi**: Mock server video dosyalarını geçici diske kaydeder, HTTP Range request desteğiyle serve eder. Uzun videolar kendi tam süresince (58s test videosu tam oynandı) çalışır.
+- **Upload gerçek progress**: XHR ile yükleme sırasında "X.X MB / Y.Y MB" gösterimi, 10 dakika timeout, HTTP 413/403/404 hata mesajları.
 
 ---
 

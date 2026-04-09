@@ -110,19 +110,21 @@ node server.js
 
 ### Mock Server Kapsamı
 | Özellik | Durum |
-|---------|-------|
+|---------|-------| 
 | Auth (email/şifre login) | ✅ |
 | Anonymous auth (player) | ✅ |
 | REST API (firms, videos, screens, playlists) | ✅ |
 | `.single()` — tek nesne dönüşü | ✅ |
-| Storage upload (thumbnail'lar bellekte, videolar drain) | ✅ |
+| Storage upload (görseller bellekte, videolar geçici diske) | ✅ |
+| Video serve — HTTP Range request (seeking destekli) | ✅ |
 | Thumbnail serve (gerçek JPEG veya placeholder PNG) | ✅ |
 | Realtime WebSocket (Phoenix array protokolü) | ✅ |
 | `postgres_changes` broadcast + subscription ID eşleşmesi | ✅ |
 
 ### Önemli Davranışlar
 - **In-memory DB**: Sunucu kapatıldığında tüm veriler sıfırlanır
-- **Video dosyaları** Storage'a gönderilmez (drain edilir), DB kaydı yapılır
+- **Video dosyaları** geçici diske kaydedilir (`%TEMP%/netonline-mock-storage`), sunucu yeniden başlatmada silinir
+- **Görsel dosyaları** bellekte saklanır, player tarafından serve edilebilir
 - **Sunucu yeniden başlatmak için** (Windows):
   ```bash
   powershell -Command "Stop-Process -Id (Get-NetTCPConnection -LocalPort 3001 -State Listen).OwningProcess -Force"
@@ -143,7 +145,7 @@ videos
   id: uuid
   title: text
   firm_id: uuid (fk: firms.id)
-  orientation: text ('horizontal'|'vertical'|'both')
+  orientation: text (kullanılmıyor — v2.3.1'den itibaren UI'dan kaldırıldı, kolon DB'de mevcut)
   file_name: text
   file_url: text
   thumbnail_url: text
@@ -157,7 +159,7 @@ screens
   firm_id: uuid (fk: firms.id)
   name: text
   location: text
-  orientation: text
+  orientation: text (kullanılmıyor — v2.3.1'den itibaren, kolon DB'de mevcut)
   status: text ('online'|'offline')
   last_seen: timestamptz
   current_video_id: uuid

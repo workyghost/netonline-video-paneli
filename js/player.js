@@ -268,10 +268,13 @@ function playItem(index) {
       }
     };
 
-    imageTimer = setTimeout(() => {
-      consecutiveErrors = 0;
-      playNext();
-    }, 30000);
+    // Link modunda overlay görünürse timer overlay dismiss'ten başlar
+    if (!isLinkMode || linkOverlay.classList.contains("hidden")) {
+      imageTimer = setTimeout(() => {
+        consecutiveErrors = 0;
+        playNext();
+      }, 30000);
+    }
 
   } else {
     // === VİDEO MODU ===
@@ -500,8 +503,17 @@ function hideLinkOverlay() {
 linkOverlay.addEventListener("click", () => {
   hideLinkOverlay();
   document.documentElement.requestFullscreen().catch(() => {});
-  mainVideo.play().catch(() => {});
-  bgVideo.play().catch(() => {});
+  if (currentVideo && isImage(currentVideo.file_name)) {
+    // Görsel: timer şimdi başlar (overlay dismiss'ten itibaren 30s)
+    if (imageTimer) clearTimeout(imageTimer);
+    imageTimer = setTimeout(() => {
+      consecutiveErrors = 0;
+      playNext();
+    }, 30000);
+  } else {
+    mainVideo.play().catch(() => {});
+    bgVideo.play().catch(() => {});
+  }
 });
 
 // ========== INIT ==========
