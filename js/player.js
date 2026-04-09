@@ -1,5 +1,6 @@
 // js/player.js
-import { playerSupabase as supabase } from "./supabase-config.js";
+import { playerSupabase as supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js";
+// Not: play_logs için admin supabase istemci değil, playerSupabase (anonim auth) kullanılır.
 
 // ========== DOM REFS ==========
 const setupScreen         = document.getElementById("setupScreen");
@@ -41,6 +42,10 @@ let currentPlaylistId  = null;
 let currentFirmId      = null;
 let isLinkMode         = false;   // true when ?screen= URL param is used
 let imageTimer         = null;
+
+// ========== PROOF OF PLAY ==========
+let currentPlayLogId       = null;
+let currentPlayLogStartedAt = null;
 
 const isImage = fn => /\.(jpg|jpeg|png)$/i.test(fn || "");
 let controlBarTimeout  = null;
@@ -162,8 +167,11 @@ function startFirmMode(firmId) {
       .eq("is_active", true);
     if (!error) {
       const now = new Date();
-      const validVideos = (videos || [])
-        .filter(v => !v.expires_at || new Date(v.expires_at) > now);
+      const validVideos = (videos || []).filter(v => {
+        if (v.starts_at  && new Date(v.starts_at)  > now) return false;
+        if (v.expires_at && new Date(v.expires_at) < now) return false;
+        return true;
+      });
       updateVideoQueue(validVideos);
     }
   };
@@ -186,15 +194,27 @@ function startPlaylistMode(playlistId) {
     const { data: playlist } = await supabase.from("playlists").select("*").eq("id", playlistId).single();
     if (!playlist) { currentPlaylistId = null; return; }
     const sortedItems = [...(playlist.items || [])].sort((a, b) => a.order - b.order);
-    
-    const videos = [];
-    for (const item of sortedItems) {
-      try {
-        const { data: vSnap } = await supabase.from("videos").select("*").eq("id", item.videoId).single();
-        if (vSnap && vSnap.is_active) videos.push(vSnap);
-      } catch (_) { /* video getirilemezse atla */ }
-    }
-    updateVideoQueue(videos);
+
+    const ids = sortedItems.map(i => i.videoId).filter(Boolean);
+    if (ids.length === 0) { updateVideoQueue([]); return; }
+
+    const { data: fetchedVideos, error: videosError } = await supabase.from("videos").select("*").in("id", ids).eq("is_active", true);
+    if (videosError) { console.debug("fetchPlaylistVideos hata:", videosError); return; }
+    const videosById = new Map((fetchedVideos || []).map(v => [v.id, v]));
+    const now = new Date();
+
+    // Playlist sırasını koru, zamanlama filtresi uygula, metadata ekle
+    const orderedVideos = sortedItems
+      .map(item => {
+        const v = videosById.get(item.videoId);
+        if (!v) return null;
+        if (v.starts_at  && new Date(v.starts_at)  > now) return null;
+        if (v.expires_at && new Date(v.expires_at) < now) return null;
+        return { ...v, _playlistItem: item };
+      })
+      .filter(Boolean);
+
+    updateVideoQueue(orderedVideos);
   };
   fetchPlaylistVideos();
   unsubscribePlaylist = supabase.channel(`public:playlists:id=${playlistId}`)
@@ -230,10 +250,45 @@ function updateVideoQueue(newVideos) {
   }
 }
 
+// ========== PROOF OF PLAY HELPERS ==========
+async function endPlayLog() {
+  if (!currentPlayLogId || !currentPlayLogStartedAt) return;
+  const ended_at = new Date().toISOString();
+  const duration_seconds = Math.round((Date.now() - currentPlayLogStartedAt) / 1000);
+  const id = currentPlayLogId;
+  currentPlayLogId        = null;
+  currentPlayLogStartedAt = null;
+  try {
+    await supabase.from("play_logs")
+      .update({ ended_at, duration_seconds })
+      .eq("id", id);
+  } catch (_) {}
+}
+
+async function insertPlayLog(video) {
+  if (!currentScreenId || !video) return;
+  try {
+    const { data, error } = await supabase.from("play_logs").insert([{
+      screen_id:   currentScreenId,
+      video_id:    video.id,
+      video_title: video.title,
+      firm_id:     video.firm_id || null,
+      started_at:  new Date().toISOString()
+    }]).select().single();
+    if (!error && data) {
+      currentPlayLogId        = data.id;
+      currentPlayLogStartedAt = Date.now();
+    }
+  } catch (_) {}
+}
+
 // ========== PLAYBACK ==========
 function playItem(index) {
   if (videoQueue.length === 0) return;
   if (imageTimer) { clearTimeout(imageTimer); imageTimer = null; }
+
+  // Önceki oynatma kaydını kapat
+  endPlayLog();
 
   currentVideoIndex = index % videoQueue.length;
   currentVideo      = videoQueue[currentVideoIndex];
@@ -251,6 +306,9 @@ function playItem(index) {
     bgImage.classList.remove("hidden");
     mainImage.src = currentVideo.file_url;
     bgImage.src   = currentVideo.file_url;
+
+    // Görsel: hemen başlıyor say
+    insertPlayLog(currentVideo);
 
     mainImage.onerror = () => {
       mainImage.onerror = null;
@@ -270,10 +328,12 @@ function playItem(index) {
 
     // Link modunda overlay görünürse timer overlay dismiss'ten başlar
     if (!isLinkMode || linkOverlay.classList.contains("hidden")) {
+      const playlistItem = currentVideo?._playlistItem;
+      const duration = ((playlistItem?.durationOverride) || 30) * 1000;
       imageTimer = setTimeout(() => {
         consecutiveErrors = 0;
         playNext();
-      }, 30000);
+      }, duration);
     }
 
   } else {
@@ -305,6 +365,10 @@ mainVideo.addEventListener("ended", () => {
 
 mainVideo.addEventListener("playing", () => {
   consecutiveErrors = 0; // Başarılı oynatmada hata sayacını sıfırla
+  // Video gerçekten başladı — log henüz açılmadıysa aç (ilk playing event'te)
+  if (!currentPlayLogId && currentVideo) {
+    insertPlayLog(currentVideo);
+  }
 });
 
 // ========== HATA DAYANIKLILIĞI ==========
@@ -380,10 +444,23 @@ function startHeartbeat(screenId) {
   }, 60000);
 }
 
-window.addEventListener("beforeunload", () => {
-  if (currentScreenId) {
-    supabase.from("screens").update({ status: "offline" }).eq("id", currentScreenId);
+// visibilitychange: tab gizlendiğinde veya sayfa terk edildiğinde offline yap (birincil yöntem)
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && currentScreenId) {
+    supabase.from("screens")
+      .update({ status: "offline", last_seen: new Date().toISOString() })
+      .eq("id", currentScreenId);
   }
+});
+
+// beforeunload: tarayıcı kapatma/sekme kapama için sendBeacon ile güvenilir offline güncelleme
+window.addEventListener("beforeunload", () => {
+  if (!currentScreenId || !SUPABASE_URL || !SUPABASE_ANON_KEY) return;
+  const url = `${SUPABASE_URL}/rest/v1/screens?id=eq.${encodeURIComponent(currentScreenId)}`;
+  navigator.sendBeacon(url, new Blob(
+    [JSON.stringify({ status: "offline", last_seen: new Date().toISOString() })],
+    { type: "application/json" }
+  ));
 });
 
 // ========== EKRANI SIFIRLA (dişli ikonu) ==========
@@ -504,12 +581,14 @@ linkOverlay.addEventListener("click", () => {
   hideLinkOverlay();
   document.documentElement.requestFullscreen().catch(() => {});
   if (currentVideo && isImage(currentVideo.file_name)) {
-    // Görsel: timer şimdi başlar (overlay dismiss'ten itibaren 30s)
+    // Görsel: timer şimdi başlar (overlay dismiss'ten itibaren durationOverride veya 30s)
     if (imageTimer) clearTimeout(imageTimer);
+    const playlistItem = currentVideo?._playlistItem;
+    const duration = ((playlistItem?.durationOverride) || 30) * 1000;
     imageTimer = setTimeout(() => {
       consecutiveErrors = 0;
       playNext();
-    }, 30000);
+    }, duration);
   } else {
     mainVideo.play().catch(() => {});
     bgVideo.play().catch(() => {});

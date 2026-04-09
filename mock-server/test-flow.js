@@ -87,9 +87,6 @@ async function run() {
     // Firma seç
     await page.selectOption('#upload-firm', { label: 'Nethouse' });
 
-    // Yön seç
-    await page.selectOption('#upload-orientation', { value: 'horizontal' });
-
     // Başlık (tek video için)
     const titleInput = page.locator('#upload-title');
     if (await titleInput.isVisible()) {

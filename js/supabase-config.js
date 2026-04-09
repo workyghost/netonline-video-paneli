@@ -12,12 +12,13 @@ if (isLocal) {
   const { key } = await res.json();
   SUPABASE_ANON_KEY = key;
 } else {
-  // Prodüksiyon: gerçek Supabase
-  SUPABASE_URL     = 'https://digital-signage-supabase.hnx0gp.easypanel.host';
-  SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNjQxNzY5MjAwLCJleHAiOjk5OTk5OTk5OTl9.OCkt5uV97wfEQcSWx0_0_pt6IoWJdczxiE6l3MJbgIA';
+  // Prodüksiyon: değerler deploy sırasında HTML'e enjekte edilen window global'lardan okunur.
+  // index.html / dashboard.html / player.html içindeki <script> bloğuna bakın.
+  SUPABASE_URL      = window.__SUPABASE_URL;
+  SUPABASE_ANON_KEY = window.__SUPABASE_ANON_KEY;
 }
 
-export { SUPABASE_URL };
+export { SUPABASE_URL, SUPABASE_ANON_KEY };
 
 // Ana istemci (Admin/Dashboard)
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

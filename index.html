@@ -8,6 +8,12 @@
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests;">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/style.css">
+  <!-- Prodüksiyon ortamında bu değerleri deploy pipeline'ınız doldurur. -->
+  <!-- Geliştirme (localhost) için mock-server otomatik devreye girer (supabase-config.js). -->
+  <script>
+    window.__SUPABASE_URL      = 'https://digital-signage-supabase.hnx0gp.easypanel.host';
+    window.__SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNjQxNzY5MjAwLCJleHAiOjk5OTk5OTk5OTl9.OCkt5uV97wfEQcSWx0_0_pt6IoWJdczxiE6l3MJbgIA';
+  </script>
 </head>
 <body class="login-bg flex items-center justify-center">
 

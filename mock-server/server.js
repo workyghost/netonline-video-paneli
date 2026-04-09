@@ -47,7 +47,7 @@ app.use((req, res, next) => {
 });
 
 // ── IN-MEMORY DB ─────────────────────────────────────────────────
-const db = { firms: [], videos: [], screens: [], playlists: [] };
+const db = { firms: [], videos: [], screens: [], playlists: [], play_logs: [] };
 
 const users = [
   { id: 'admin-user-id', email: 'admin@test.com', password: 'admin123' }
@@ -173,19 +173,47 @@ app.put('/auth/v1/user', (req, res) => {
 
 // ── REST API (PostgREST compatible) ──────────────────────────────
 
-function parseEqFilters(query) {
+// filters: { key: { op, value } }
+function parseFilters(query) {
   const filters = {};
   for (const [key, val] of Object.entries(query)) {
-    if (typeof val === 'string' && val.startsWith('eq.')) {
-      filters[key] = val.slice(3);
+    if (typeof val !== 'string') continue;
+    if (val.startsWith('eq.'))  { filters[key] = { op: 'eq',  value: val.slice(3) }; continue; }
+    if (val.startsWith('gte.')) { filters[key] = { op: 'gte', value: val.slice(4) }; continue; }
+    if (val.startsWith('lte.')) { filters[key] = { op: 'lte', value: val.slice(4) }; continue; }
+    if (val.startsWith('in.')) {
+      // in.(a,b,c) → array
+      const raw = val.slice(3).replace(/^\(|\)$/g, '');
+      filters[key] = { op: 'in', value: raw ? raw.split(',').map(s => s.trim()) : [] };
+      continue;
     }
   }
   return filters;
 }
 
-function applyFilters(rows, filters) {
+// Backward-compat alias (eq-only callers)
+function parseEqFilters(query) {
+  const all = parseFilters(query);
+  const eq = {};
+  for (const [k, f] of Object.entries(all)) {
+    if (f.op === 'eq') eq[k] = f.value;
+  }
+  return eq;
+}
+
+function applyFilters(rows, filtersOrEq) {
+  // filtersOrEq may be the old eq-map OR the new op-map
   return rows.filter(row =>
-    Object.entries(filters).every(([k, v]) => String(row[k]) === String(v))
+    Object.entries(filtersOrEq).every(([k, v]) => {
+      const op    = typeof v === 'object' && v.op ? v.op : 'eq';
+      const value = typeof v === 'object' && v.op ? v.value : v;
+      const cell  = row[k];
+      if (op === 'eq')  return String(cell) === String(value);
+      if (op === 'in')  return value.includes(String(cell));
+      if (op === 'gte') return cell != null && new Date(cell) >= new Date(value);
+      if (op === 'lte') return cell != null && new Date(cell) <= new Date(value);
+      return true;
+    })
   );
 }
 
@@ -194,7 +222,7 @@ app.get('/rest/v1/:table', (req, res) => {
   const t = db[req.params.table];
   if (!t) return res.status(404).json({ message: 'relation does not exist' });
 
-  const filters = parseEqFilters(req.query);
+  const filters = parseFilters(req.query);
   let rows = applyFilters(t, filters);
 
   const select = req.query.select;
@@ -267,7 +295,7 @@ app.delete('/rest/v1/:table', (req, res) => {
   const t = db[req.params.table];
   if (!t) return res.status(404).json({ message: 'relation does not exist' });
 
-  const filters = parseEqFilters(req.query);
+  const filters = parseFilters(req.query);
   const deleted = [];
   const keep    = [];
   t.forEach(row => {
@@ -479,6 +507,10 @@ server.listen(PORT, () => {
   console.log(`║  🌐  http://localhost:${PORT}                        ║`);
   console.log(`║  📧  Test Email   : admin@test.com               ║`);
   console.log(`║  🔑  Test Şifre   : admin123                     ║`);
+  console.log('╠══════════════════════════════════════════════════╣');
+  console.log('║  📋  Tablolar: firms, videos, screens,           ║');
+  console.log('║               playlists, play_logs               ║');
+  console.log('║  🔍  Filtreler: eq. in. gte. lte.               ║');
   console.log('╚══════════════════════════════════════════════════╝');
   console.log('');
 });

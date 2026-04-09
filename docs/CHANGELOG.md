@@ -6,6 +6,81 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.9.1] — 2026-04-09
+
+### Yapılandırma
+- **VPS prodüksiyon credentials eklendi**: `index.html`, `dashboard.html`, `player.html` içindeki `window.__SUPABASE_URL` ve `window.__SUPABASE_ANON_KEY` global değişkenleri gerçek Supabase endpoint ve anon key ile dolduruldu. Lokal ortamda mock-server akışı değişmedi.
+
+---
+
+## [2.9.0] — 2026-04-09
+
+### Mock Server
+- **Test dosyası düzeltmesi**: `test-quick.js` ve `test-flow.js`'deki kaldırılmış `#upload-orientation` seçicisi referansları temizlendi. Testler artık mevcut upload modal'ıyla çalışır.
+- **Başlangıç logu güncellendi**: Sunucu başlarken desteklenen tablolar (`firms, videos, screens, playlists, play_logs`) ve filtreler (`eq. in. gte. lte.`) listeleniyor.
+- **Filtre doğrulaması**: `parseFilters` + `applyFilters` → `play_logs` istatistik sorgusu (`gte.`), playlist video fetch (`in.`), bulk delete (`in.`) lokal ortamda çalışır hale getirildi.
+
+---
+
+## [2.8.0] — 2026-04-09
+
+### Yeni Özellikler
+- **Proof of Play** (`js/player.js`, `js/dashboard/overview.js`):
+  - Yeni `play_logs` tablosu: her video başladığında INSERT, bittiğinde `ended_at` + `duration_seconds` UPDATE.
+  - Görsel içerikler için log `playItem()` anında, video içerikler için `playing` event'inde açılır.
+  - Her `playItem()` çağrısında önceki log otomatik kapatılır.
+  - Genel Bakış sayfasına "Son 24 saatte X video oynatıldı, toplam Y dakika yayın" istatistik bandı eklendi.
+- **Zamanlama — starts_at** (`js/player.js`, `js/dashboard/contents.js`):
+  - `videos` tablosuna `starts_at timestamptz` kolonu eklendi (migration SQL: `ALTER TABLE videos ADD COLUMN IF NOT EXISTS starts_at timestamptz`).
+  - Player firma ve playlist modunda `starts_at` ve `expires_at` birlikte kontrol ediliyor.
+  - Upload modal'ına "Başlangıç Tarihi" alanı eklendi; İçerikler tablosuna "Başlangıç" kolonu eklendi.
+- **Dosya boyutu kontrolü** (`js/dashboard/contents.js`):
+  - Görsel: >10 MB → engel (toast).
+  - Video: >1 GB → engel (toast); >500 MB → uyarı (toast, yükleme devam eder).
+
+### Mock Server
+- `play_logs` tablosu eklendi (`db.play_logs: []`).
+- `parseFilters` genişletildi: `eq.`, `in.`, `gte.`, `lte.` operatörleri destekleniyor.
+- GET ve DELETE handler'ları tam filtre desteğine güncellendi.
+
+---
+
+## [2.7.0] — 2026-04-09
+
+### Performans & Hata Düzeltme
+- **Playlist N+1 sorgusu giderildi** (`js/player.js`): `fetchPlaylistVideos` artık her video için ayrı sorgu atmıyor. Tüm video ID'leri toplanarak tek `.in("id", ids)` sorgusu atılıyor; sıralama Map ile playlist order'ına göre restore ediliyor.
+- **Bulk delete toplu operasyona çevrildi** (`js/dashboard/contents.js`): Storage dosyaları tek `remove(filePaths[])` çağrısıyla, DB kayıtları tek `.delete().in("id", ids)` çağrısıyla siliniyor. Önceki loop yapısı kaldırıldı.
+- **durationOverride aktif edildi**: Görsel içerikler (JPG/PNG) için playlist başına özelleştirilebilir süre:
+  - `js/player.js`: `playItem()` hardcoded 30s yerine `_playlistItem.durationOverride` okuyor (yoksa 30s varsayılan). Link overlay dismiss timer da aynı değeri kullanıyor.
+  - `js/player.js`: `fetchPlaylistVideos` her video objesine `_playlistItem` metadata'sını attach ediyor.
+  - `js/dashboard/playlists.js`: Playlist sıra listesinde her satıra "Süre (sn)" number input eklendi. Değer kaydedilirken `durationOverride` alanına yazılıyor.
+
+---
+
+## [2.6.0] — 2026-04-09
+
+### Yeniden Yapılandırma
+- **dashboard.js modüler hale getirildi** (1438 sat → 6 modül): `js/dashboard/shared.js` giriş noktası oldu. Her sayfa kendi modülüne taşındı: `overview.js`, `screens.js`, `contents.js`, `playlists.js`, `settings.js`.
+- **openModal(renderFn) pattern**: Modal fonksiyonu artık HTML string yerine callback (`renderFn(box)`) alıyor. Tüm event listener'lar renderFn içinde `addEventListener` ile bağlanıyor — inline `onclick` tamamen kaldırıldı.
+- **modalState nesnesi**: `isUploading` state'i `modalState.isUploading` olarak export edilen nesne üzerinden paylaşılıyor (ES module live binding ile contents.js'den mutasyona uğrayabiliyor).
+- `dashboard.html`: `js/dashboard.js` → `js/dashboard/shared.js` olarak güncellendi.
+
+---
+
+## [2.5.0] — 2026-04-09
+
+### Güvenlik
+- **Supabase credentials hardcode kaldırıldı** (`js/supabase-config.js`): Prodüksiyon URL ve anon key artık `window.__SUPABASE_URL` / `window.__SUPABASE_ANON_KEY` global değişkenlerinden okunuyor. Deploy pipeline bu değerleri HTML'e enjekte eder; geliştirme ortamında mock-server akışı değişmedi.
+- **XSS riski giderildi** (`js/dashboard.js`): Modal HTML'indeki 4 adet `onclick="closeModal()"` inline handler kaldırıldı. `openModal()` fonksiyonu artık `data-close-modal` attribute'u olan butonlara otomatik `addEventListener` bağlıyor. `window.closeModal` global expose'u kaldırıldı.
+- **Player offline güvenilirliği** (`js/player.js`): Asenkron `beforeunload` yerine iki katmanlı yöntem: `visibilitychange` (birincil — tab kapama/geçiş) ve `beforeunload + navigator.sendBeacon` (ikincil — tarayıcı kapatma). `SUPABASE_URL` ve `SUPABASE_ANON_KEY` supabase-config.js'den export edildi.
+
+### Değiştirildi
+- `js/supabase-config.js`: `SUPABASE_ANON_KEY` artık export ediliyor.
+- `.gitignore`: `js/supabase-config.js` eklendi (credentials dosyası artık tracked olmamalı — `git rm --cached js/supabase-config.js` ile untrack edin).
+- `index.html`, `dashboard.html`, `player.html`: Prodüksiyon credential placeholder `<script>` bloğu eklendi.
+
+---
+
 ## [2.4.0] — 2026-04-09
 
 ### Yeni Özellikler

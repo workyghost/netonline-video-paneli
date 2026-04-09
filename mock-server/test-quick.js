@@ -44,7 +44,6 @@ async function run() {
   await page.waitForSelector('#upload-form-fields:not(.hidden)', { timeout: 5000 });
 
   await page.selectOption('#upload-firm', { label: 'Test Firma' });
-  await page.selectOption('#upload-orientation', { value: 'horizontal' });
   await page.locator('#upload-title').fill('Thumbnail Test Videosu');
 
   // Toast'ları temizle

@@ -10,6 +10,12 @@
   <script>
     tailwind.config = { theme: { extend: {} } }
   </script>
+  <!-- Prodüksiyon ortamında bu değerleri deploy pipeline'ınız doldurur. -->
+  <!-- Geliştirme (localhost) için mock-server otomatik devreye girer (supabase-config.js). -->
+  <script>
+    window.__SUPABASE_URL      = 'https://digital-signage-supabase.hnx0gp.easypanel.host';
+    window.__SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNjQxNzY5MjAwLCJleHAiOjk5OTk5OTk5OTl9.OCkt5uV97wfEQcSWx0_0_pt6IoWJdczxiE6l3MJbgIA';
+  </script>
   <style>
     .nav-btn.active {
       background-color: rgb(37 99 235 / 0.15);
@@ -72,6 +78,6 @@
     <div id="modal-box" class="bg-gray-900 rounded-xl border border-gray-700 w-full max-w-lg max-h-[90vh] overflow-y-auto p-6"></div>
   </div>
 
-  <script type="module" src="js/dashboard.js"></script>
+  <script type="module" src="js/dashboard/shared.js"></script>
 </body>
 </html>
