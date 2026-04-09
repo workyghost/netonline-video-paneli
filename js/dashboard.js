@@ -150,8 +150,6 @@ function formatDate(ts) {
   } catch { return "Sınırsız"; }
 }
 
-const ORIENTATION_LABEL = { horizontal: "Yatay", vertical: "Dikey", both: "Ortak" };
-const ORIENTATION_BADGE = { horizontal: "bg-blue-500/10 text-blue-400", vertical: "bg-purple-500/10 text-purple-400", both: "bg-green-500/10 text-green-400" };
 
 async function loadFirmsMap() {
   try {
@@ -314,7 +312,6 @@ function initScreens() {
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Ekran Adı</th>
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Firma</th>
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Konum</th>
-            <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Yön</th>
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Durum</th>
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Playlist</th>
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">İşlemler</th>
@@ -358,7 +355,6 @@ function initScreens() {
         <td class="px-4 py-3 text-gray-200 font-medium">${esc(s.name)}</td>
         <td class="px-4 py-3 text-gray-400">${esc(firmsMap.get(s.firm_id) || "—")}</td>
         <td class="px-4 py-3 text-gray-400 text-xs">${esc(s.location || "—")}</td>
-        <td class="px-4 py-3 text-gray-400 text-xs">${esc(ORIENTATION_LABEL[s.orientation] || s.orientation)}</td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium
             ${isOnline ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}">
@@ -372,7 +368,7 @@ function initScreens() {
         </td>
         <td class="px-4 py-3 flex gap-2">
           <button class="btn-edit-screen px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
-            data-id="${esc(screenId)}" data-name="${esc(s.name)}" data-location="${esc(s.location||"")}" data-orientation="${esc(s.orientation)}" data-firm="${esc(s.firm_id)}">
+            data-id="${esc(screenId)}" data-name="${esc(s.name)}" data-location="${esc(s.location||"")}" data-firm="${esc(s.firm_id)}">
             Düzenle
           </button>
           <button class="btn-copy-link px-2 py-1 text-xs bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded transition-colors"
@@ -452,17 +448,6 @@ function openAddScreenModal() {
         <input id="ms-location" type="text" maxlength="100" placeholder="İstanbul, Kadıköy"
           class="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-600">
       </div>
-      <div>
-        <label class="block text-xs text-gray-400 mb-2">Yön</label>
-        <div class="flex gap-4">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="radio" name="ms-orientation" value="horizontal" class="accent-blue-500"> <span class="text-sm text-gray-300">Yatay</span>
-          </label>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="radio" name="ms-orientation" value="vertical" class="accent-blue-500"> <span class="text-sm text-gray-300">Dikey</span>
-          </label>
-        </div>
-      </div>
       <div id="ms-error" class="hidden text-xs text-red-400 bg-red-400/10 rounded p-2"></div>
       <div class="flex justify-end gap-2 pt-2">
         <button onclick="closeModal()" class="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 rounded-lg transition-colors">İptal</button>
@@ -475,10 +460,9 @@ function openAddScreenModal() {
     const firmId      = document.getElementById("ms-firm").value;
     const name        = document.getElementById("ms-name").value.trim();
     const location    = document.getElementById("ms-location").value.trim();
-    const orientation = document.querySelector('input[name="ms-orientation"]:checked')?.value;
-    const errEl       = document.getElementById("ms-error");
+    const errEl = document.getElementById("ms-error");
 
-    if (!firmId || !name || !location || !orientation) {
+    if (!firmId || !name || !location) {
       errEl.textContent = "Tüm alanları doldurun.";
       errEl.classList.remove("hidden");
       return;
@@ -490,7 +474,7 @@ function openAddScreenModal() {
     try {
       const { error } = await supabase.from("screens").insert([{
         firm_id: firmId,
-        name, location, orientation,
+        name, location,
         status: "offline",
         last_seen: new Date().toISOString(),
         current_video_id: null,
@@ -509,7 +493,7 @@ function openAddScreenModal() {
   });
 }
 
-function openEditScreenModal({ id, name, location, orientation, firm }) {
+function openEditScreenModal({ id, name, location, firm }) {
   openModal(`
     <h3 class="text-base font-semibold text-white mb-4">Ekranı Düzenle</h3>
     <div class="space-y-3">
@@ -523,19 +507,6 @@ function openEditScreenModal({ id, name, location, orientation, firm }) {
         <input id="es-location" type="text" maxlength="100" value="${esc(location)}"
           class="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
       </div>
-      <div>
-        <label class="block text-xs text-gray-400 mb-2">Yön</label>
-        <div class="flex gap-4">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="radio" name="es-orientation" value="horizontal" ${orientation === "horizontal" ? "checked" : ""} class="accent-blue-500">
-            <span class="text-sm text-gray-300">Yatay</span>
-          </label>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="radio" name="es-orientation" value="vertical" ${orientation === "vertical" ? "checked" : ""} class="accent-blue-500">
-            <span class="text-sm text-gray-300">Dikey</span>
-          </label>
-        </div>
-      </div>
       <div class="flex justify-end gap-2 pt-2">
         <button onclick="closeModal()" class="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 rounded-lg">İptal</button>
         <button id="es-save" class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg">Kaydet</button>
@@ -546,9 +517,8 @@ function openEditScreenModal({ id, name, location, orientation, firm }) {
   document.getElementById("es-save").addEventListener("click", async () => {
     const newName     = document.getElementById("es-name").value.trim();
     const newLocation = document.getElementById("es-location").value.trim();
-    const newOrient   = document.querySelector('input[name="es-orientation"]:checked')?.value;
-    if (!newName || !newLocation || !newOrient) return;
-    const { error } = await supabase.from("screens").update({ name: newName, location: newLocation, orientation: newOrient }).eq("id", id);
+    if (!newName || !newLocation) return;
+    const { error } = await supabase.from("screens").update({ name: newName, location: newLocation }).eq("id", id);
     if (error) showToast(error.message, "error");
     else {
       closeModal();
@@ -571,12 +541,6 @@ function initContents() {
         <select id="filter-firm" class="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-1.5">
           ${firmFilterOpts}
         </select>
-        <select id="filter-orientation" class="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-1.5">
-          <option value="">Tüm Yönler</option>
-          <option value="horizontal">Yatay</option>
-          <option value="vertical">Dikey</option>
-          <option value="both">Ortak</option>
-        </select>
         <input id="filter-search" type="text" placeholder="Video ara..." maxlength="100"
           class="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-1.5 placeholder-gray-600 w-40">
         <button id="btn-upload-video" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors">
@@ -594,7 +558,6 @@ function initContents() {
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium w-16">Kapak</th>
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Video Adı</th>
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Firma</th>
-            <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Yön</th>
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Bitiş</th>
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Durum</th>
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">İşlem</th>
@@ -619,14 +582,12 @@ function initContents() {
   }
 
   function renderVideos() {
-    const firmFilter   = document.getElementById("filter-firm")?.value || "";
-    const orientFilter = document.getElementById("filter-orientation")?.value || "";
-    const search       = (document.getElementById("filter-search")?.value || "").toLowerCase();
+    const firmFilter = document.getElementById("filter-firm")?.value || "";
+    const search     = (document.getElementById("filter-search")?.value || "").toLowerCase();
 
     const filtered = allVideos.filter(v => {
-      if (firmFilter   && v.firm_id      !== firmFilter)   return false;
-      if (orientFilter && v.orientation !== orientFilter) return false;
-      if (search       && !v.title?.toLowerCase().includes(search)) return false;
+      if (firmFilter && v.firm_id !== firmFilter) return false;
+      if (search     && !v.title?.toLowerCase().includes(search)) return false;
       return true;
     });
 
@@ -665,7 +626,6 @@ function initContents() {
       tr.innerHTML = `
         <td class="px-4 py-3 text-gray-200 font-medium">${esc(v.title)}</td>
         <td class="px-4 py-3 text-gray-400">${esc(firmsMap.get(v.firm_id) || "—")}</td>
-        <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-xs font-medium ${ORIENTATION_BADGE[v.orientation] || ""}">${esc(ORIENTATION_LABEL[v.orientation] || v.orientation)}</span></td>
         <td class="px-4 py-3 text-gray-400 text-xs">${formatDate(v.expires_at)}</td>
         <td class="px-4 py-3">
           <div class="toggle-btn w-10 h-5 rounded-full cursor-pointer transition-colors relative ${v.is_active ? "bg-blue-600" : "bg-gray-700"}"
@@ -727,7 +687,7 @@ function initContents() {
     });
   }
 
-  ["filter-firm", "filter-orientation"].forEach(id => {
+  ["filter-firm"].forEach(id => {
     document.getElementById(id)?.addEventListener("change", renderVideos);
   });
   document.getElementById("filter-search")?.addEventListener("input", renderVideos);
@@ -762,15 +722,6 @@ function initContents() {
             <label class="block text-xs text-gray-400 mb-1">Firma</label>
             <select id="upload-firm" class="w-full bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2">
               ${firmUploadOpts}
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs text-gray-400 mb-1">Yön</label>
-            <select id="upload-orientation" class="w-full bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2">
-              <option value="">Seçin...</option>
-              <option value="horizontal">Yatay</option>
-              <option value="vertical">Dikey</option>
-              <option value="both">Ortak</option>
             </select>
           </div>
         </div>
@@ -827,13 +778,11 @@ function initContents() {
     document.getElementById("upload-submit-btn").addEventListener("click", async () => {
       if (!selectedFiles.length) { showToast("Dosya seçin", "error"); return; }
       const firmId      = document.getElementById("upload-firm").value;
-      const orientation = document.getElementById("upload-orientation").value;
-      const expiry      = document.getElementById("upload-expiry").value;
+      const expiry = document.getElementById("upload-expiry").value;
       if (selectedFiles.length === 1 && !document.getElementById("upload-title").value.trim()) {
         showToast("Başlık girin", "error"); return;
       }
-      if (!firmId)      { showToast("Firma seçin", "error"); return; }
-      if (!orientation) { showToast("Yön seçin", "error"); return; }
+      if (!firmId) { showToast("Firma seçin", "error"); return; }
 
       isUploading = true;
       document.getElementById("upload-submit-btn").disabled = true;
@@ -853,7 +802,7 @@ function initContents() {
           document.getElementById("upload-progress-bar").style.width = "0%";
           document.getElementById("upload-progress-pct").textContent = "0%";
           try {
-            await uploadSingleVideo(file, title, firmId, orientation, expiry);
+            await uploadSingleVideo(file, title, firmId, expiry);
             successCount++;
           } catch (e) {
             showToast(`"${file.name}" yüklenemedi: ${e.message}`, "error");
@@ -868,7 +817,7 @@ function initContents() {
     });
   }
 
-  function uploadSingleVideo(file, title, firmId, orientation, expiry) {
+  function uploadSingleVideo(file, title, firmId, expiry) {
     return new Promise(async (resolve, reject) => {
       const fileName = Date.now() + "_" + file.name.replace(/[^a-zA-Z0-9.\-_]/g, '');
       const bar     = document.getElementById("upload-progress-bar");
@@ -902,7 +851,7 @@ function initContents() {
           try { thumbnailUrl = await generateThumbnail(file, fileName); } catch (_) {}
 
           const { error: dbError } = await supabase.from("videos").insert([{
-            title, firm_id: firmId, orientation, file_name: fileName, file_url: fileUrl,
+            title, firm_id: firmId, file_name: fileName, file_url: fileUrl,
             thumbnail_url: thumbnailUrl, is_active: true,
             expires_at: expiry ? new Date(expiry).toISOString() : null,
             created_at: new Date().toISOString(),
