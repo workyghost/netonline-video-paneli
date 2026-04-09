@@ -6,6 +6,32 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.3.1] — 2026-04-09
+
+### Yeni Özellikler
+- **Görsel desteği**: JPG/PNG içerik yüklenebilir ve player'da 30 saniye görüntülenir (blur background ile)
+- **Kalıcı error toast**: Hata mesajları manuel kapatılana kadar ekranda kalır (✕ butonu); başarı mesajları 3.5s sonra kaybolur
+
+### İyileştirmeler
+- **Orientation (Yön) kaldırıldı**: Tüm formlar, filtreler ve tablo sütunlarından yön alanı çıkarıldı; player tüm aktif içerikleri oynatır
+- **Ekranlar listesi**: Yeni ekran eklenince/düzenlenince liste anında güncellenir (yenileme gerekmez)
+
+---
+
+## [2.3.0] — 2026-04-09
+
+### Düzeltildi
+- **Video yükleme — büyük dosya desteği**: `supabase.storage.upload()` yerine `XMLHttpRequest` kullanıldı. Eski SDK upload'u gerçek ilerleme bilgisi vermiyordu ve büyük dosyalarda hatalı davranıyordu.
+  - Gerçek upload progress (gönderilen MB / toplam MB gösterimi)
+  - 10 dakika timeout limiti
+  - HTTP 413, 403, 404 için anlamlı Türkçe hata mesajları
+- **supabase-config.js**: `SUPABASE_URL` export'u eklendi (XHR endpoint inşası için gerekli)
+
+### VPS Notu
+Eğer VPS'te hâlâ 413 hatası alıyorsanız, Easypanel Nginx ayarlarında `client_max_body_size` değerini artırın (örn: `500m`).
+
+---
+
 ## [2.2.9] — 2026-04-09
 
 ### Lokal Test Sunucusu (mock-server) İyileştirmeleri

@@ -5,7 +5,7 @@
 TV ekranlarında merkezi video yönetimi sağlayan **Digital Signage** sistemi.
 Çok müşterili ajans modeli: firmalar dashboard üzerinden dinamik olarak yönetilir.
 
-**Mevcut sürüm:** v2.2.9 (kararlı, prodüksiyona hazır, lokal mock-server ile test edilebilir)
+**Mevcut sürüm:** v2.3.1 (kararlı, prodüksiyona hazır, lokal mock-server ile test edilebilir)
 
 ---
 
