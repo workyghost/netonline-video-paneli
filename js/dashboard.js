@@ -862,6 +862,7 @@ function initContents() {
 
           const { error: dbError } = await supabase.from("videos").insert([{
             title, firm_id: firmId, file_name: fileName, file_url: fileUrl,
+            orientation: 'horizontal',
             thumbnail_url: thumbnailUrl, is_active: true,
             expires_at: expiry ? new Date(expiry).toISOString() : null,
             created_at: new Date().toISOString(),

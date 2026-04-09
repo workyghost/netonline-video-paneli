@@ -6,6 +6,13 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.3.2] — 2026-04-09
+
+### Hata Düzeltmeleri
+- **Video yükleme orientation hatası**: VPS'te video yüklerken `null value in column "orientation"` hatası alınıyordu. Insert sorgusuna varsayılan `'horizontal'` değeri eklendi.
+
+---
+
 ## [2.3.1] — 2026-04-09
 
 ### Yeni Özellikler
