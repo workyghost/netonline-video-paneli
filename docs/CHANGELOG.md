@@ -6,6 +6,18 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.4.0] — 2026-04-09
+
+### Yeni Özellikler
+- **Toplu silme**: İçerikler sekmesinde checkbox ile birden fazla video seçilip tek seferde silinebilir. Seçim sayısı butonda gösterilir.
+- **Sahipsiz video filtresi**: Firma filtre dropdown'ına "— Sahipsiz" seçeneği eklendi. Firma silindiğinde `firm_id` NULL olan videolar bu filtre ile listelenir.
+- **Storage temizliği düzeltmesi**: Toplu silmede her video için `videos/` ve `thumbnails/` storage dosyaları da temizlenir.
+
+### Değiştrildi
+- `sql/schema.sql`: `videos.firm_id` nullable yapıldı (`ON DELETE SET NULL`). Firma silinince videolar sahipsiz kalır, kaybolmaz.
+
+---
+
 ## [2.3.2] — 2026-04-09
 
 ### Hata Düzeltmeleri
