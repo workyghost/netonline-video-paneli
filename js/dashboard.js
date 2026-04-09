@@ -142,6 +142,8 @@ function timeAgo(timestamp) {
   } catch { return "—"; }
 }
 
+const isImage = fn => /\.(jpg|jpeg|png)$/i.test(fn || "");
+
 function formatDate(ts) {
   if (!ts) return "Sınırsız";
   try {
@@ -546,7 +548,7 @@ function initContents() {
         <input id="filter-search" type="text" placeholder="Video ara..." maxlength="100"
           class="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-1.5 placeholder-gray-600 w-40">
         <button id="btn-upload-video" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors">
-          + Video Yükle
+          + İçerik Yükle
         </button>
       </div>
     </div>
@@ -703,14 +705,14 @@ function initContents() {
     });
 
     openModal(`
-      <h3 class="text-base font-semibold text-white mb-4">Video Yükle</h3>
+      <h3 class="text-base font-semibold text-white mb-4">İçerik Yükle</h3>
       <div id="upload-drop-zone" class="border-2 border-dashed border-gray-700 rounded-xl p-8 text-center cursor-pointer hover:border-blue-500/50 hover:bg-gray-800/30 transition-colors mb-4">
         <svg class="mx-auto h-8 w-8 text-gray-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
         </svg>
         <p class="text-sm text-gray-300">Sürükle veya <span class="text-blue-400 underline">tıkla</span></p>
-        <p class="text-xs text-gray-600 mt-1">MP4 · Çoklu seçim desteklenir</p>
-        <input type="file" id="upload-file-input" accept=".mp4,video/mp4" multiple class="hidden">
+        <p class="text-xs text-gray-600 mt-1">MP4 · JPG · PNG · Çoklu seçim desteklenir</p>
+        <input type="file" id="upload-file-input" accept=".mp4,video/mp4,.jpg,.jpeg,.png,image/jpeg,image/png" multiple class="hidden">
       </div>
       <p id="upload-file-name" class="text-xs text-gray-400 mb-3 hidden"></p>
       <div id="upload-form-fields" class="hidden space-y-3">
@@ -758,8 +760,10 @@ function initContents() {
     fileInput.addEventListener("change", () => handleFiles(fileInput.files));
 
     function handleFiles(files) {
-      const valid = Array.from(files).filter(f => f.type === "video/mp4");
-      if (!valid.length) { showToast("Yalnızca MP4 kabul edilir", "error"); return; }
+      const valid = Array.from(files).filter(f =>
+        f.type === "video/mp4" || f.type === "image/jpeg" || f.type === "image/png"
+      );
+      if (!valid.length) { showToast("Yalnızca MP4, JPG, PNG kabul edilir", "error"); return; }
       selectedFiles = valid;
       const nameEl    = document.getElementById("upload-file-name");
       const formEl    = document.getElementById("upload-form-fields");
@@ -850,7 +854,11 @@ function initContents() {
           if (pctEl) pctEl.textContent = "98%";
 
           let thumbnailUrl = "";
-          try { thumbnailUrl = await generateThumbnail(file, fileName); } catch (_) {}
+          if (isImage(fileName)) {
+            thumbnailUrl = fileUrl;
+          } else {
+            try { thumbnailUrl = await generateThumbnail(file, fileName); } catch (_) {}
+          }
 
           const { error: dbError } = await supabase.from("videos").insert([{
             title, firm_id: firmId, file_name: fileName, file_url: fileUrl,
