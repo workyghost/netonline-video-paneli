@@ -620,6 +620,7 @@ function initContents() {
     const tableWrap = document.getElementById("contents-table-wrap");
     if (!tbody) return;
 
+    tbody.innerHTML = "";
     if (filtered.length === 0) {
       emptyEl?.classList.remove("hidden");
       tableWrap?.classList.add("hidden");
@@ -627,7 +628,6 @@ function initContents() {
     }
     emptyEl?.classList.add("hidden");
     tableWrap?.classList.remove("hidden");
-    tbody.innerHTML = "";
 
     filtered.forEach(v => {
       const tr = document.createElement("tr");

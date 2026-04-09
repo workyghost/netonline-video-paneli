@@ -18,6 +18,7 @@ firebase-export-*/
 
 # Superpowers iç dosyaları
 .superpowers/
+docs/superpowers/
 
 # Node (firebase-tools global kullanılıyor ama yine de)
 node_modules/

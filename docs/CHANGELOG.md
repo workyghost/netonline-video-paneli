@@ -6,6 +6,28 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [2.2.9] — 2026-04-09
+
+### Lokal Test Sunucusu (mock-server) İyileştirmeleri
+- **Realtime broadcast**: Supabase realtime v2 Phoenix array protokolü (`[joinRef,ref,topic,event,payload]`) desteği eklendi. Önceki obje formatı `data.event` çalışmıyordu. Artık tüm DB değişiklikleri (INSERT/UPDATE/DELETE) bağlı dashboard'lara anında yansıyor.
+- **Subscription ID**: `phx_join` yanıtında subscription ID'leri (`response.postgres_changes[].id`) gönderilmektedir. Supabase client bu ID'leri kullanarak broadcast eventlerini doğru callback'e yönlendiriyor.
+- **`.single()` fix**: REST API GET endpoint'i `Accept: application/vnd.pgrst.object+json` header'ı gönderildiğinde dizi yerine tek nesne döndürüyor. Önceki davranışta player.js'deki `screen.playlist_id` undefined geliyordu; bu da "video bulunamadı" hatasına yol açıyordu.
+- **Anonymous auth**: `POST /auth/v1/signup` endpoint'i eklendi. Player TV modu artık anonim oturum açabiliyor.
+
+---
+
+## [2.2.8] — 2026-04-09
+
+### Düzeltildi
+- **İçerikler — Tbody Temizleme Hatası**: `renderVideos()` video listesi boşken `tbody.innerHTML`'i temizlemeden döndüğünden eski DOM satırları gizli tablo içinde kalıyordu. `tbody.innerHTML = ""` çağrısı `filtered.length` kontrolünden önceye alındı.
+
+### Lokal Test Sunucusu (mock-server) İyileştirmeleri
+- **Thumbnail Storage Düzeltmesi**: Express 5'te `*path` wildcard'ı string yerine dizi döndürüyor. `parsePath()` yardımcı fonksiyonu eklenerek dizi doğru şekilde `join('/')` ile stringe çevriliyor. Bu düzeltme öncesinde thumbnail upload ve download anahtarları Map'te hiç eşleşmiyordu.
+- **Storage Upload/Download Desteği**: Thumbnail yüklemeleri artık belleğe alınıp servis ediliyor; video dosyaları belleği doldurmamak için drain ediliyor.
+- **Favicon**: Mock server `/favicon.ico` isteğine 204 döndürüyor, 404 hatası giderildi.
+
+---
+
 ## [2.2.7] — 2026-04-08
 
 ### Kritik Düzeltme

@@ -130,6 +130,27 @@ app.get('/auth/v1/user', (req, res) => {
 // Logout
 app.post('/auth/v1/logout', (req, res) => res.status(204).send());
 
+// Anonymous signup (player için)
+app.post('/auth/v1/signup', (req, res) => {
+  const anonId = uuid();
+  const token  = makeToken(anonId, '');
+  const expiresIn = 86400;
+  res.json({
+    access_token: token,
+    token_type: 'bearer',
+    expires_in: expiresIn,
+    expires_at: Math.floor(Date.now() / 1000) + expiresIn,
+    refresh_token: uuid(),
+    user: {
+      id: anonId, email: '', role: 'anon', aud: 'authenticated',
+      is_anonymous: true,
+      created_at: new Date().toISOString(),
+      app_metadata: { provider: 'anonymous' },
+      user_metadata: {}
+    }
+  });
+});
+
 // Update user (password change)
 app.put('/auth/v1/user', (req, res) => {
   const auth = getAuth(req);
@@ -175,6 +196,17 @@ app.get('/rest/v1/:table', (req, res) => {
     rows = rows.map(row => Object.fromEntries(fields.map(f => [f, row[f]])));
   }
 
+  // .single() veya .maybeSingle() çağrısı: tek nesne dön
+  const isSingle = (req.headers['accept'] || '').includes('pgrst.object');
+  if (isSingle) {
+    if (rows.length === 0) {
+      return res.status(406).json({ message: 'JSON object requested, multiple (or no) rows returned' });
+    }
+    res.setHeader('Content-Range', `0-0/1`);
+    console.log(`GET  /rest/v1/${req.params.table} (single) → 1 row`);
+    return res.json(rows[0]);
+  }
+
   res.setHeader('Content-Range', `0-${Math.max(0, rows.length - 1)}/${rows.length}`);
   console.log(`GET  /rest/v1/${req.params.table} → ${rows.length} rows`);
   res.json(rows);
@@ -202,6 +234,7 @@ app.post('/rest/v1/:table', (req, res) => {
 
   console.log(`POST /rest/v1/${req.params.table} →`, inserted);
   res.status(201).json(inserted.length === 1 ? inserted[0] : inserted);
+  inserted.forEach(row => broadcastChange(req.params.table, 'INSERT', row));
 });
 
 // PATCH (update)
@@ -219,6 +252,7 @@ app.patch('/rest/v1/:table', (req, res) => {
   });
   console.log(`PATCH /rest/v1/${req.params.table} filters=`, filters, '→', updated.length, 'updated');
   res.json(updated);
+  updated.forEach(row => broadcastChange(req.params.table, 'UPDATE', row));
 });
 
 // DELETE
@@ -236,30 +270,159 @@ app.delete('/rest/v1/:table', (req, res) => {
   t.length = 0; keep.forEach(r => t.push(r));
   console.log(`DELETE /rest/v1/${req.params.table} filters=`, filters, '→', deleted.length, 'deleted');
   res.json(deleted);
+  deleted.forEach(row => broadcastChange(req.params.table, 'DELETE', row));
 });
 
-// Storage (stub)
+// ── STORAGE (in-memory, upload/download destekli) ────────────────
+const storageFiles = new Map(); // path → { buffer, contentType }
+
+// 1x1 şeffaf PNG — thumbnail placeholder
+const PLACEHOLDER_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  'base64'
+);
+
+// Express 5: *path parametresi dizi döndürür, string'e çeviriyoruz
+function parsePath(params) {
+  const p = params.path ?? params[0] ?? '';
+  return Array.isArray(p) ? p.join('/') : String(p);
+}
+
+// Yükleme: POST /storage/v1/object/{bucket}/{path}
+app.post('/storage/v1/object/*path', async (req, res) => {
+  const storagePath = parsePath(req.params);
+  const contentType = req.headers['content-type'] || 'application/octet-stream';
+  const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(storagePath);
+
+  const chunks = [];
+  req.on('data', chunk => {
+    if (isImage) chunks.push(chunk); // Video gibi büyük dosyaları belleğe alma
+  });
+  req.on('end', () => {
+    if (isImage && chunks.length > 0) {
+      const buf = Buffer.concat(chunks);
+      storageFiles.set(storagePath, { buffer: buf, contentType: 'image/jpeg' });
+      console.log(`📦 Storage upload (image): ${storagePath} (${buf.length} bytes)`);
+    } else {
+      console.log(`📦 Storage upload (video, drained): ${storagePath}`);
+    }
+    res.status(200).json({ Key: storagePath, Id: uuid() });
+  });
+  req.on('error', () => res.status(500).json({ error: 'upload failed' }));
+});
+
+// Dosya indirme: GET /storage/v1/object/public/{bucket}/{path}
+app.get('/storage/v1/object/public/*path', (req, res) => {
+  const storagePath = parsePath(req.params);
+  const stored = storageFiles.get(storagePath);
+  if (stored) {
+    res.setHeader('Content-Type', stored.contentType);
+    return res.send(stored.buffer);
+  }
+  // Kayıtlı dosya yok — görsel için placeholder PNG dön
+  if (/\.(jpg|jpeg|png|webp|gif)$/i.test(storagePath)) {
+    res.setHeader('Content-Type', 'image/png');
+    return res.send(PLACEHOLDER_PNG);
+  }
+  res.status(404).json({ error: 'not found', message: storagePath + ' bulunamadı' });
+});
+
+// Silme
+app.delete('/storage/v1/object/*path', (req, res) => {
+  const storagePath = parsePath(req.params);
+  storageFiles.delete(storagePath);
+  res.json([{ name: storagePath }]);
+});
+
+// Diğer storage istekleri
 app.all('/storage/v1/*path', (req, res) => res.json({ message: 'storage not mocked' }));
 
-// ── REALTIME (WebSocket stub) ────────────────────────────────────
+// ── REALTIME (WebSocket — Phoenix array protocol + postgres_changes) ─
+// Supabase realtime v2: mesajlar [joinRef, ref, topic, event, payload] dizisi
+// ws → [ { joinRef, topic, tables: [{ table, schema, event }] } ]
+const wsChannels = new Map();
+
+// Phoenix array formatında mesaj gönder
+function wsSend(ws, joinRef, ref, topic, event, payload) {
+  if (ws.readyState !== ws.constructor.OPEN) return;
+  ws.send(JSON.stringify([joinRef, ref, topic, event, payload]));
+}
+
 wss.on('connection', (ws) => {
+  wsChannels.set(ws, []);
   console.log('🔌 Realtime WebSocket connected');
-  ws.on('message', (msg) => {
+
+  ws.on('message', (rawMsg, isBinary) => {
+    if (isBinary) { console.log('📨 WS binary frame received'); return; }
     try {
-      const data = JSON.parse(msg);
-      // Respond to heartbeat/join
-      if (data.event === 'heartbeat') {
-        ws.send(JSON.stringify({ event: 'heartbeat', payload: {}, ref: data.ref, topic: data.topic }));
-      } else if (data.event === 'phx_join') {
-        ws.send(JSON.stringify({ event: 'phx_reply', payload: { status: 'ok', response: {} }, ref: data.ref, topic: data.topic }));
+      const raw = rawMsg.toString();
+      const data = JSON.parse(raw);
+      console.log(`📨 ${raw.slice(0, 120)}`);
+      // Phoenix array: [joinRef, ref, topic, event, payload]
+      const [joinRef, ref, topic, event, payload] = Array.isArray(data)
+        ? data
+        : [null, data.ref, data.topic, data.event, data.payload];
+
+      if (event === 'heartbeat') {
+        wsSend(ws, joinRef, ref, topic, 'phx_reply', { status: 'ok', response: {} });
+      } else if (event === 'phx_join') {
+        const pgChanges = payload?.config?.postgres_changes || [];
+        // Her subscription'a benzersiz ID ata (client bunu broadcast eşleştirmesinde kullanır)
+        const tablesWithIds = pgChanges.map(t => ({ ...t, id: Math.floor(Math.random() * 2e9) }));
+        const channels = wsChannels.get(ws) || [];
+        channels.push({ joinRef, topic, tables: tablesWithIds });
+        wsChannels.set(ws, channels);
+        console.log(`📡 phx_join: ${topic} tables=[${tablesWithIds.map(t=>t.table).join(',')}]`);
+        // Supabase v2: response.postgres_changes içinde ID'leri gönder
+        wsSend(ws, joinRef, ref, topic, 'phx_reply', {
+          status: 'ok',
+          response: { postgres_changes: tablesWithIds }
+        });
+      } else if (event === 'phx_leave') {
+        wsChannels.set(ws, (wsChannels.get(ws) || []).filter(c => c.topic !== topic));
+        wsSend(ws, joinRef, ref, topic, 'phx_reply', { status: 'ok', response: {} });
       }
     } catch {}
   });
+  ws.on('close', () => wsChannels.delete(ws));
   ws.on('error', () => {});
 });
 
+// DB değişikliğini tüm ilgili WebSocket client'larına yayınla
+function broadcastChange(table, type, record, oldRecord = {}) {
+  wsChannels.forEach((channels, ws) => {
+    channels.forEach(ch => {
+      // Bu kanaldaki hangi subscriptions'lar bu tabloyu izliyor?
+      const matchingIds = ch.tables
+        .filter(t => (t.table === table || t.table === '*') && (t.event === '*' || t.event === type))
+        .map(t => t.id);
+
+      if (matchingIds.length === 0) return;
+
+      const payload = {
+        data: {
+          commit_timestamp: new Date().toISOString(),
+          type,
+          schema: 'public',
+          table,
+          record:     (type !== 'DELETE') ? record    : {},
+          old_record: (type === 'DELETE')  ? oldRecord : {},
+          errors: null
+        },
+        ids: matchingIds   // ← Supabase client bu ID'lerle subscription'ı eşleştirir
+      };
+
+      wsSend(ws, null, null, ch.topic, 'postgres_changes', payload);
+      console.log(`📤 broadcast ${type} on ${table} (ids:${matchingIds}) → ${ch.topic}`);
+    });
+  });
+}
+
 // Anon key endpoint (supabase-config.js için)
 app.get('/local-anon-key', (req, res) => res.json({ key: ANON_KEY }));
+
+// Favicon — 404 hatalarını önle
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // ── STATIC FILES (projeyi de serve et) ───────────────────────────
 const projectRoot = path.join(__dirname, '..');
