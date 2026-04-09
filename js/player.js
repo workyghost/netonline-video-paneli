@@ -37,7 +37,6 @@ let unsubscribePlaylist = null;
 let unsubscribeVideos  = null;
 let currentPlaylistId  = null;
 let currentFirmId      = null;
-let currentOrientation = null;
 let isLinkMode         = false;   // true when ?screen= URL param is used
 let controlBarTimeout  = null;
 
@@ -81,13 +80,9 @@ saveScreenButton.addEventListener("click", async () => {
   const firmId      = firmSelect.value;
   const name        = screenNameInput.value.trim();
   const location    = screenLocationInput.value.trim();
-  const orientationEl = document.querySelector('input[name="screenOrientation"]:checked');
-  const orientation = orientationEl?.value;
-
-  if (!firmId)      { showSetupError("Lütfen firma seçin.");     return; }
-  if (!name)        { showSetupError("Lütfen ekran adı girin."); return; }
-  if (!location)    { showSetupError("Lütfen konum girin.");     return; }
-  if (!orientation) { showSetupError("Lütfen yön seçin.");      return; }
+  if (!firmId)   { showSetupError("Lütfen firma seçin.");     return; }
+  if (!name)     { showSetupError("Lütfen ekran adı girin."); return; }
+  if (!location) { showSetupError("Lütfen konum girin.");     return; }
 
   hideSetupError();
   saveScreenButton.disabled    = true;
@@ -98,7 +93,6 @@ saveScreenButton.addEventListener("click", async () => {
       firm_id: firmId,
       name,
       location,
-      orientation,
       status: "online",
       last_seen: new Date().toISOString(),
       current_video_id: null,
@@ -138,7 +132,7 @@ function startPlayback(screenId) {
     if (screen.playlist_id) {
       startPlaylistMode(screen.playlist_id);
     } else {
-      startFirmMode(screen.firm_id, screen.orientation);
+      startFirmMode(screen.firm_id);
     }
   };
 
@@ -149,12 +143,10 @@ function startPlayback(screenId) {
 }
 
 // ========== FIRM MODE ==========
-function startFirmMode(firmId, orientation) {
-  // Aynı firm+orientation zaten aktifse tekrar kurma
-  if (currentFirmId === firmId && currentOrientation === orientation && currentPlaylistId === null) return;
-  currentFirmId      = firmId;
-  currentOrientation = orientation;
-  currentPlaylistId  = null;
+function startFirmMode(firmId) {
+  if (currentFirmId === firmId && currentPlaylistId === null) return;
+  currentFirmId     = firmId;
+  currentPlaylistId = null;
 
   if (unsubscribePlaylist){ supabase.removeChannel(unsubscribePlaylist); unsubscribePlaylist = null; }
   if (unsubscribeVideos)  { supabase.removeChannel(unsubscribeVideos);  unsubscribeVideos  = null; }
@@ -166,8 +158,7 @@ function startFirmMode(firmId, orientation) {
     if (!error) {
       const now = new Date();
       const validVideos = (videos || [])
-        .filter(v => !v.expires_at || new Date(v.expires_at) > now)
-        .filter(v => v.orientation === orientation || v.orientation === "both");
+        .filter(v => !v.expires_at || new Date(v.expires_at) > now);
       updateVideoQueue(validVideos);
     }
   };
@@ -503,7 +494,7 @@ async function init() {
            if (screen.playlist_id) {
              startPlaylistMode(screen.playlist_id);
            } else {
-             startFirmMode(screen.firm_id, screen.orientation);
+             startFirmMode(screen.firm_id);
            }
         };
         fetchScreen();
