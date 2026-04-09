@@ -534,13 +534,19 @@ function initContents() {
   const el = document.getElementById("page-contents");
 
   let firmFilterOpts = '<option value="">Tüm Firmalar</option>';
+  firmFilterOpts += '<option value="__orphan__">— Sahipsiz</option>';
   firmsMap.forEach((name, id) => {
     firmFilterOpts += `<option value="${esc(id)}">${esc(name)}</option>`;
   });
 
   el.innerHTML = `
     <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
-      <h2 class="text-lg font-semibold text-white">İçerikler</h2>
+      <div class="flex items-center gap-3">
+        <h2 class="text-lg font-semibold text-white">İçerikler</h2>
+        <button id="btn-bulk-delete" class="hidden px-3 py-1.5 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-colors">
+          Seçilenleri Sil (<span id="bulk-delete-count">0</span>)
+        </button>
+      </div>
       <div class="flex flex-wrap items-center gap-2">
         <select id="filter-firm" class="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-1.5">
           ${firmFilterOpts}
@@ -559,6 +565,9 @@ function initContents() {
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead><tr class="border-b border-gray-800">
+            <th class="px-4 py-3 w-8">
+              <input type="checkbox" id="chk-select-all" class="rounded border-gray-600 bg-gray-800 text-blue-600">
+            </th>
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium w-16">Kapak</th>
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Video Adı</th>
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Firma</th>
@@ -585,13 +594,22 @@ function initContents() {
     }
   }
 
+  function updateBulkUI() {
+    const checked = document.querySelectorAll(".chk-video:checked");
+    const btn     = document.getElementById("btn-bulk-delete");
+    const counter = document.getElementById("bulk-delete-count");
+    if (btn)     btn.classList.toggle("hidden", checked.length === 0);
+    if (counter) counter.textContent = checked.length;
+  }
+
   function renderVideos() {
     const firmFilter = document.getElementById("filter-firm")?.value || "";
     const search     = (document.getElementById("filter-search")?.value || "").toLowerCase();
 
     const filtered = allVideos.filter(v => {
-      if (firmFilter && v.firm_id !== firmFilter) return false;
-      if (search     && !v.title?.toLowerCase().includes(search)) return false;
+      if (firmFilter === "__orphan__" && v.firm_id != null) return false;
+      if (firmFilter && firmFilter !== "__orphan__" && v.firm_id !== firmFilter) return false;
+      if (search && !v.title?.toLowerCase().includes(search)) return false;
       return true;
     });
 
@@ -642,7 +660,11 @@ function initContents() {
             data-id="${esc(v.id)}" data-filename="${esc(v.file_name || "")}">Sil</button>
         </td>
       `;
+      const tdCheck = document.createElement("td");
+      tdCheck.className = "px-4 py-3";
+      tdCheck.innerHTML = `<input type="checkbox" class="chk-video rounded border-gray-600 bg-gray-800 text-blue-600" data-id="${esc(v.id)}">`;
       tr.insertBefore(tdThumb, tr.firstChild);
+      tr.insertBefore(tdCheck, tr.firstChild);
       tbody.appendChild(tr);
     });
 
@@ -677,7 +699,7 @@ function initContents() {
         const fileName = video?.file_name || "";
         if (fileName) {
           try { await supabase.storage.from("digital-signage").remove(["videos/" + fileName]); } catch (_) {}
-          try { await supabase.storage.from("digital-signage").remove(["thumbnails/thumb_" + fileName.replace(/\.mp4$/i, ".jpg")]); } catch (_) {}
+          try { await supabase.storage.from("digital-signage").remove(["thumbnails/thumb_" + fileName.replace(/\.[^.]+$/, ".jpg")]); } catch (_) {}
         }
         try {
           const { error } = await supabase.from("videos").delete().eq("id", videoId);
@@ -689,12 +711,65 @@ function initContents() {
         }
       });
     });
+
+    // Satır checkbox'ları
+    tbody.querySelectorAll(".chk-video").forEach(chk => {
+      chk.addEventListener("change", () => {
+        const all = document.getElementById("chk-select-all");
+        const boxes = document.querySelectorAll(".chk-video");
+        if (all) {
+          const allChecked = [...boxes].every(b => b.checked);
+          const someChecked = [...boxes].some(b => b.checked);
+          all.checked = allChecked;
+          all.indeterminate = someChecked && !allChecked;
+        }
+        updateBulkUI();
+      });
+    });
+
+    updateBulkUI();
   }
 
   ["filter-firm"].forEach(id => {
     document.getElementById(id)?.addEventListener("change", renderVideos);
   });
   document.getElementById("filter-search")?.addEventListener("input", renderVideos);
+  document.getElementById("chk-select-all")?.addEventListener("change", () => {
+    document.querySelectorAll(".chk-video").forEach(chk => {
+      chk.checked = document.getElementById("chk-select-all").checked;
+    });
+    updateBulkUI();
+  });
+
+  document.getElementById("btn-bulk-delete")?.addEventListener("click", async () => {
+    const checked = [...document.querySelectorAll(".chk-video:checked")];
+    if (checked.length === 0) return;
+    if (!confirm(`${checked.length} içerik silinecek. Bu işlem geri alınamaz. Emin misiniz?`)) return;
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const chk of checked) {
+      const videoId = chk.dataset.id;
+      const video = allVideos.find(v => v.id === videoId);
+      const fileName = video?.file_name || "";
+      if (fileName) {
+        try { await supabase.storage.from("digital-signage").remove(["videos/" + fileName]); } catch (_) {}
+        try { await supabase.storage.from("digital-signage").remove(["thumbnails/thumb_" + fileName.replace(/\.[^.]+$/, ".jpg")]); } catch (_) {}
+      }
+      try {
+        const { error: dbError } = await supabase.from("videos").delete().eq("id", videoId);
+        if (dbError) throw dbError;
+        successCount++;
+      } catch (_) {
+        errorCount++;
+      }
+    }
+
+    if (errorCount > 0) showToast(`${successCount} silindi, ${errorCount} silinemedi`, "error");
+    else showToast(`${successCount} içerik silindi`);
+    await loadVideos();
+  });
 
   document.getElementById("btn-upload-video").addEventListener("click", openUploadModal);
 
