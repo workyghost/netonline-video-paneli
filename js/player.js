@@ -12,6 +12,8 @@ const setupError          = document.getElementById("setupError");
 const resetButton         = document.getElementById("resetButton");
 const bgVideo             = document.getElementById("bgVideo");
 const mainVideo           = document.getElementById("mainVideo");
+const bgImage             = document.getElementById("bgImage");
+const mainImage           = document.getElementById("mainImage");
 const linkOverlay         = document.getElementById("linkOverlay");
 const controlBar          = document.getElementById("controlBar");
 const ctrlPlayPause       = document.getElementById("ctrlPlayPause");
@@ -38,6 +40,9 @@ let unsubscribeVideos  = null;
 let currentPlaylistId  = null;
 let currentFirmId      = null;
 let isLinkMode         = false;   // true when ?screen= URL param is used
+let imageTimer         = null;
+
+const isImage = fn => /\.(jpg|jpeg|png)$/i.test(fn || "");
 let controlBarTimeout  = null;
 
 // ========== SETUP HELPERS ==========
@@ -199,6 +204,7 @@ function startPlaylistMode(playlistId) {
 
 // ========== VIDEO QUEUE ==========
 function updateVideoQueue(newVideos) {
+  if (imageTimer) { clearTimeout(imageTimer); imageTimer = null; }
   if (newVideos.length === 0) {
     videoQueue = [];
     mainVideo.pause();
@@ -220,28 +226,73 @@ function updateVideoQueue(newVideos) {
     videoQueue        = newVideos;
     consecutiveErrors = 0;
     if (retryTimeout) { clearTimeout(retryTimeout); retryTimeout = null; }
-    playVideo(0);
+    playItem(0);
   }
 }
 
 // ========== PLAYBACK ==========
-function playVideo(index) {
+function playItem(index) {
   if (videoQueue.length === 0) return;
+  if (imageTimer) { clearTimeout(imageTimer); imageTimer = null; }
+
   currentVideoIndex = index % videoQueue.length;
   currentVideo      = videoQueue[currentVideoIndex];
 
-  mainVideo.src = currentVideo.file_url;
-  bgVideo.src   = currentVideo.file_url;
-  mainVideo.load();
-  bgVideo.load();
-  mainVideo.muted = false;
-  bgVideo.muted   = true;
-  mainVideo.play().catch(console.error);
-  bgVideo.play().catch(console.error);
+  if (isImage(currentVideo.file_name)) {
+    // === GÖRSEL MODU ===
+    mainVideo.pause();
+    mainVideo.removeAttribute("src");
+    bgVideo.pause();
+    bgVideo.removeAttribute("src");
+    mainVideo.classList.add("hidden");
+    bgVideo.classList.add("hidden");
+
+    mainImage.classList.remove("hidden");
+    bgImage.classList.remove("hidden");
+    mainImage.src = currentVideo.file_url;
+    bgImage.src   = currentVideo.file_url;
+
+    mainImage.onerror = () => {
+      mainImage.onerror = null;
+      consecutiveErrors++;
+      if (consecutiveErrors >= 3) {
+        showContentError();
+        if (retryTimeout) clearTimeout(retryTimeout);
+        retryTimeout = setTimeout(() => {
+          consecutiveErrors = 0;
+          hideContentError();
+          if (videoQueue.length > 0) playItem(currentVideoIndex);
+        }, 5 * 60 * 1000);
+      } else {
+        setTimeout(playNext, 3000);
+      }
+    };
+
+    imageTimer = setTimeout(() => {
+      consecutiveErrors = 0;
+      playNext();
+    }, 30000);
+
+  } else {
+    // === VİDEO MODU ===
+    mainImage.classList.add("hidden");
+    bgImage.classList.add("hidden");
+    mainVideo.classList.remove("hidden");
+    bgVideo.classList.remove("hidden");
+
+    mainVideo.src = currentVideo.file_url;
+    bgVideo.src   = currentVideo.file_url;
+    mainVideo.load();
+    bgVideo.load();
+    mainVideo.muted = false;
+    bgVideo.muted   = true;
+    mainVideo.play().catch(console.error);
+    bgVideo.play().catch(console.error);
+  }
 }
 
 function playNext() {
-  playVideo(currentVideoIndex + 1);
+  playItem(currentVideoIndex + 1);
 }
 
 mainVideo.addEventListener("ended", () => {
@@ -263,7 +314,7 @@ mainVideo.addEventListener("error", () => {
     retryTimeout = setTimeout(() => {
       consecutiveErrors = 0;
       hideContentError();
-      if (videoQueue.length > 0) playVideo(currentVideoIndex);
+      if (videoQueue.length > 0) playItem(currentVideoIndex);
     }, 5 * 60 * 1000);
   } else {
     // 3 saniye bekle, sonraki videoya geç
@@ -359,6 +410,7 @@ function stopAllListeners() {
 
 function cleanupAndShowSetup() {
   if (heartbeatInterval) clearInterval(heartbeatInterval);
+  if (imageTimer) { clearTimeout(imageTimer); imageTimer = null; }
   stopAllListeners();
   currentScreenId   = null;
   currentVideo      = null;
