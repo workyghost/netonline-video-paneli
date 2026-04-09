@@ -322,7 +322,7 @@ function initScreens() {
     </div>
   `;
 
-  document.getElementById("btn-add-screen").addEventListener("click", () => openAddScreenModal());
+  document.getElementById("btn-add-screen").addEventListener("click", () => openAddScreenModal(fetchScreens));
 
   const fetchScreens = async () => {
     const myGen = ++generation;
@@ -395,7 +395,7 @@ function initScreens() {
     });
 
     tbody.querySelectorAll(".btn-edit-screen").forEach(btn => {
-      btn.addEventListener("click", () => openEditScreenModal(btn.dataset));
+      btn.addEventListener("click", () => openEditScreenModal(btn.dataset, fetchScreens));
     });
 
     tbody.querySelectorAll(".btn-copy-link").forEach(btn => {
@@ -428,7 +428,7 @@ function initScreens() {
   unsubscribers.screens = () => { supabase.removeChannel(unsubScreens); };
 }
 
-function openAddScreenModal() {
+function openAddScreenModal(onSuccess) {
   openModal(`
     <h3 class="text-base font-semibold text-white mb-4">Yeni Ekran Ekle</h3>
     <div class="space-y-3">
@@ -484,6 +484,7 @@ function openAddScreenModal() {
       }]);
       if (error) throw error;
       closeModal();
+      onSuccess();
       showToast("Ekran eklendi");
     } catch (e) {
       errEl.textContent = e.message;
@@ -493,7 +494,7 @@ function openAddScreenModal() {
   });
 }
 
-function openEditScreenModal({ id, name, location, firm }) {
+function openEditScreenModal({ id, name, location, firm }, onSuccess) {
   openModal(`
     <h3 class="text-base font-semibold text-white mb-4">Ekranı Düzenle</h3>
     <div class="space-y-3">
@@ -522,6 +523,7 @@ function openEditScreenModal({ id, name, location, firm }) {
     if (error) showToast(error.message, "error");
     else {
       closeModal();
+      onSuccess();
       showToast("Ekran güncellendi");
     }
   });
