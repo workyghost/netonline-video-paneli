@@ -1,7 +1,7 @@
 // js/dashboard.js
 
 // ========== IMPORTS ==========
-import { supabase } from "./supabase-config.js";
+import { supabase, SUPABASE_URL } from "./supabase-config.js";
 
 // ========== STATE ==========
 let currentPage = "overview";
@@ -75,16 +75,31 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
 
 // ========== TOAST ==========
 function showToast(message, type = "success") {
+  const container = document.getElementById("toast-container");
   const colors = {
     success: "bg-green-600 text-white",
     error:   "bg-red-600 text-white",
     info:    "bg-gray-700 text-white"
   };
   const toast = document.createElement("div");
-  toast.className = `px-4 py-3 rounded-lg text-sm font-medium shadow-lg pointer-events-auto ${colors[type] ?? colors.info}`;
-  toast.textContent = message;
-  document.getElementById("toast-container").appendChild(toast);
-  setTimeout(() => toast.remove(), 3500);
+  toast.className = `flex items-start gap-2 px-4 py-3 rounded-lg text-sm font-medium shadow-lg pointer-events-auto ${colors[type] ?? colors.info}`;
+
+  const msgSpan = document.createElement("span");
+  msgSpan.className = "flex-1";
+  msgSpan.textContent = message;
+  toast.appendChild(msgSpan);
+
+  const closeBtn = document.createElement("button");
+  closeBtn.textContent = "✕";
+  closeBtn.className = "ml-1 opacity-60 hover:opacity-100 flex-shrink-0 leading-none";
+  closeBtn.addEventListener("click", () => toast.remove());
+  toast.appendChild(closeBtn);
+
+  container.appendChild(toast);
+
+  if (type !== "error") {
+    setTimeout(() => toast.remove(), 3500);
+  }
 }
 
 // ========== MODAL ==========
@@ -856,45 +871,67 @@ function initContents() {
   function uploadSingleVideo(file, title, firmId, orientation, expiry) {
     return new Promise(async (resolve, reject) => {
       const fileName = Date.now() + "_" + file.name.replace(/[^a-zA-Z0-9.\-_]/g, '');
-      const bar = document.getElementById("upload-progress-bar");
-      const pctEl = document.getElementById("upload-progress-pct");
+      const bar     = document.getElementById("upload-progress-bar");
+      const pctEl   = document.getElementById("upload-progress-pct");
+      const labelEl = document.getElementById("upload-progress-label");
 
-      // Supabase v2 standard JS upload doesn't emit progress easily, simulate visually
-      let prog = 0;
-      const progInt = setInterval(() => { 
-        prog += 5; 
-        if (prog > 90) prog = 90;
-        if (bar) bar.style.width = prog + "%";
-        if (pctEl) pctEl.textContent = prog + "%";
-      }, 500);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return reject(new Error("Oturum bulunamadı"));
 
-      try {
-        const { error: uploadError } = await supabase.storage.from('digital-signage').upload("videos/" + fileName, file);
-        clearInterval(progInt);
-        if (bar) bar.style.width = "100%";
-        if (pctEl) pctEl.textContent = "100%";
+      const storageUrl = `${SUPABASE_URL}/storage/v1/object/digital-signage/videos/${fileName}`;
+      const fileUrl    = `${SUPABASE_URL}/storage/v1/object/public/digital-signage/videos/${fileName}`;
 
-        if (uploadError) return reject(uploadError);
+      const xhr = new XMLHttpRequest();
 
-        const { data: { publicUrl: fileUrl } } = supabase.storage.from('digital-signage').getPublicUrl("videos/" + fileName);
+      xhr.upload.onprogress = (e) => {
+        if (!e.lengthComputable) return;
+        const pct     = Math.round((e.loaded / e.total) * 95);
+        const sentMB  = (e.loaded  / 1024 / 1024).toFixed(1);
+        const totalMB = (e.total   / 1024 / 1024).toFixed(1);
+        if (bar)     bar.style.width  = pct + "%";
+        if (pctEl)   pctEl.textContent = pct + "%";
+        if (labelEl) labelEl.textContent = `Yükleniyor... ${sentMB} / ${totalMB} MB`;
+      };
 
-        let thumbnailUrl = "";
-        try { thumbnailUrl = await generateThumbnail(file, fileName); } catch (_) {}
+      xhr.onload = async () => {
+        if (xhr.status === 200 || xhr.status === 201) {
+          if (bar)   bar.style.width   = "98%";
+          if (pctEl) pctEl.textContent = "98%";
 
-        const { error: dbError } = await supabase.from("videos").insert([{
-          title, firm_id: firmId, orientation, file_name: fileName, file_url: fileUrl, thumbnail_url: thumbnailUrl,
-          is_active: true,
-          expires_at: expiry ? new Date(expiry).toISOString() : null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }]);
+          let thumbnailUrl = "";
+          try { thumbnailUrl = await generateThumbnail(file, fileName); } catch (_) {}
 
-        if (dbError) throw dbError;
-        resolve();
-      } catch (e) {
-        clearInterval(progInt);
-        reject(e);
-      }
+          const { error: dbError } = await supabase.from("videos").insert([{
+            title, firm_id: firmId, orientation, file_name: fileName, file_url: fileUrl,
+            thumbnail_url: thumbnailUrl, is_active: true,
+            expires_at: expiry ? new Date(expiry).toISOString() : null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }]);
+
+          if (bar)   bar.style.width   = "100%";
+          if (pctEl) pctEl.textContent = "100%";
+
+          if (dbError) reject(dbError);
+          else resolve();
+        } else {
+          let msg = `Yükleme hatası (HTTP ${xhr.status})`;
+          if (xhr.status === 413) msg = "Dosya çok büyük — sunucu limiti aşıldı (413). VPS'te Nginx/Kong client_max_body_size artırılmalı.";
+          else if (xhr.status === 403) msg = "Yetkisiz erişim (403). Storage bucket izinlerini kontrol edin.";
+          else if (xhr.status === 404) msg = "Storage bucket bulunamadı (404). 'digital-signage' bucket'ın oluşturulduğunu doğrulayın.";
+          reject(new Error(msg));
+        }
+      };
+
+      xhr.onerror   = () => reject(new Error("Ağ hatası. İnternet bağlantınızı kontrol edin."));
+      xhr.ontimeout = () => reject(new Error("Yükleme zaman aşımı (10 dk). Dosya çok büyük veya bağlantı çok yavaş."));
+
+      xhr.open("POST", storageUrl);
+      xhr.setRequestHeader("Authorization", `Bearer ${session.access_token}`);
+      xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+      xhr.timeout = 10 * 60 * 1000; // 10 dakika
+
+      xhr.send(file);
     });
   }
 
