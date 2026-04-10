@@ -1,10 +1,11 @@
 // js/dashboard/screens.js — Ekranlar sayfası ve modal'ları
 
 import { supabase } from "../supabase-config.js";
-import { esc, timeAgo, firmsMap, unsubscribers, showToast, openModal, closeModal, firmsOptions } from "./shared.js";
+import { esc, timeAgo, firmsMap, unsubscribers, showToast, openModal, closeModal, firmsOptions, isScreenOnline } from "./shared.js";
 
 export function initScreens() {
   let generation = 0;
+  let lastSeenInterval = null;
   const el = document.getElementById("page-screens");
   el.innerHTML = `
     <div class="flex items-center justify-between mb-6">
@@ -13,7 +14,11 @@ export function initScreens() {
         + Yeni Ekran Ekle
       </button>
     </div>
-    <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+    <div id="screens-empty" class="hidden text-center py-16 text-gray-600">
+      <p class="text-sm mb-1">Henüz ekran eklenmedi.</p>
+      <p class="text-xs text-gray-700">Yeni ekran ekleyerek başlayın veya TV'de player.html'i açarak otomatik kayıt yapın.</p>
+    </div>
+    <div id="screens-table-wrap" class="hidden bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead><tr class="border-b border-gray-800">
@@ -21,6 +26,7 @@ export function initScreens() {
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Firma</th>
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Konum</th>
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Durum</th>
+            <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Son Görülme</th>
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">Playlist</th>
             <th class="text-left px-4 py-3 text-xs text-gray-500 font-medium">İşlemler</th>
           </tr></thead>
@@ -41,16 +47,23 @@ export function initScreens() {
 
     if (myGen !== generation) return;
 
-    const tbody = document.getElementById("screens-tbody");
+    const tbody     = document.getElementById("screens-tbody");
+    const emptyEl   = document.getElementById("screens-empty");
+    const tableWrap = document.getElementById("screens-table-wrap");
     if (!tbody) return;
     tbody.innerHTML = "";
-    const now = Date.now();
-    const TWO_MIN = 2 * 60 * 1000;
+
+    if (!screens || screens.length === 0) {
+      emptyEl?.classList.remove("hidden");
+      tableWrap?.classList.add("hidden");
+      return;
+    }
+    emptyEl?.classList.add("hidden");
+    tableWrap?.classList.remove("hidden");
 
     (screens || []).forEach(s => {
       const screenId = s.id;
-      const lastMs = s.last_seen ? new Date(s.last_seen).getTime() : 0;
-      const isOnline = (now - lastMs) < TWO_MIN;
+      const isOnline = isScreenOnline(s);
 
       let plOpts = '<option value="">Otomatik (Playlist Yok)</option>';
       (playlists || []).forEach(p => {
@@ -70,6 +83,7 @@ export function initScreens() {
             ${isOnline ? "Çevrimiçi" : "Çevrimdışı"}
           </span>
         </td>
+        <td class="px-4 py-3 text-gray-500 text-xs" data-timestamp="${s.last_seen || ""}">${timeAgo(s.last_seen)}</td>
         <td class="px-4 py-3">
           <select class="playlist-select bg-gray-800 border border-gray-700 text-gray-300 text-xs rounded px-2 py-1"
             data-screen-id="${esc(screenId)}">${plOpts}</select>
@@ -101,6 +115,14 @@ export function initScreens() {
         else showToast("Playlist güncellendi", "success");
       });
     });
+
+    // Canlı sayaç: her 30s'de Son Görülme hücrelerini güncelle
+    if (lastSeenInterval) clearInterval(lastSeenInterval);
+    lastSeenInterval = setInterval(() => {
+      document.querySelectorAll("#screens-tbody [data-timestamp]").forEach(td => {
+        td.textContent = timeAgo(td.dataset.timestamp);
+      });
+    }, 30000);
 
     tbody.querySelectorAll(".btn-screen-detail").forEach(btn => {
       btn.addEventListener("click", () => openScreenDetailModal(btn.dataset.id, screens || []));
@@ -137,7 +159,10 @@ export function initScreens() {
     .on("postgres_changes", { event: "*", schema: "public", table: "playlists" }, fetchScreens)
     .subscribe();
 
-  unsubscribers.screens = () => { supabase.removeChannel(unsubScreens); };
+  unsubscribers.screens = () => {
+    supabase.removeChannel(unsubScreens);
+    if (lastSeenInterval) { clearInterval(lastSeenInterval); lastSeenInterval = null; }
+  };
 }
 
 export function openAddScreenModal(onSuccess) {

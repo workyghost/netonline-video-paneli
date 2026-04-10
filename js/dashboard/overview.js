@@ -1,7 +1,7 @@
 // js/dashboard/overview.js — Genel Bakış sayfası
 
 import { supabase } from "../supabase-config.js";
-import { esc, timeAgo, firmsMap, unsubscribers } from "./shared.js";
+import { esc, timeAgo, firmsMap, unsubscribers, isScreenOnline } from "./shared.js";
 
 export function initOverview() {
   const el = document.getElementById("page-overview");
@@ -60,21 +60,20 @@ export function initOverview() {
     if (av) av.textContent = active || 0;
   };
 
+  let lastSeenInterval = null;
+
   const fetchScreens = async () => {
     const { data: screens, error } = await supabase.from("screens").select("*");
     if (error) return;
 
-    const now = Date.now();
-    const TWO_MIN = 2 * 60 * 1000;
     let online = 0;
     const tbody = document.getElementById("overview-screen-tbody");
     if (!tbody) return;
     tbody.innerHTML = "";
 
     (screens || []).forEach(s => {
-      const lastMs = s.last_seen ? new Date(s.last_seen).getTime() : 0;
-      const isOnline = (now - lastMs) < TWO_MIN;
-      if (isOnline) online++;
+      const online_ = isScreenOnline(s);
+      if (online_) online++;
 
       const tr = document.createElement("tr");
       tr.className = "border-b border-gray-800/50 hover:bg-gray-800/20";
@@ -83,16 +82,24 @@ export function initOverview() {
         <td class="px-4 py-3 text-gray-400">${esc(firmsMap.get(s.firm_id) || "—")}</td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium
-            ${isOnline ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}">
-            <span class="w-1.5 h-1.5 rounded-full ${isOnline ? "bg-green-400" : "bg-red-400"}"></span>
-            ${isOnline ? "Çevrimiçi" : "Çevrimdışı"}
+            ${online_ ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}">
+            <span class="w-1.5 h-1.5 rounded-full ${online_ ? "bg-green-400" : "bg-red-400"}"></span>
+            ${online_ ? "Çevrimiçi" : "Çevrimdışı"}
           </span>
         </td>
         <td class="px-4 py-3 text-gray-400 text-xs">${esc(s.current_video_title || "—")}</td>
-        <td class="px-4 py-3 text-gray-500 text-xs">${timeAgo(s.last_seen)}</td>
+        <td class="px-4 py-3 text-gray-500 text-xs" data-timestamp="${s.last_seen || ""}">${timeAgo(s.last_seen)}</td>
       `;
       tbody.appendChild(tr);
     });
+
+    // Canlı sayaç: her 30s'de Son Görülme hücrelerini güncelle
+    if (lastSeenInterval) clearInterval(lastSeenInterval);
+    lastSeenInterval = setInterval(() => {
+      document.querySelectorAll("#overview-screen-tbody [data-timestamp]").forEach(td => {
+        td.textContent = timeAgo(td.dataset.timestamp);
+      });
+    }, 30000);
 
     const ts = document.getElementById("m-total-screens");
     const os = document.getElementById("m-online-screens");
@@ -207,5 +214,9 @@ export function initOverview() {
     .on("postgres_changes", { event: "*", schema: "public", table: "screens" }, fetchScreens)
     .subscribe();
 
-  unsubscribers.overview = () => { supabase.removeChannel(unsubVideos); supabase.removeChannel(unsubScreens); };
+  unsubscribers.overview = () => {
+    supabase.removeChannel(unsubVideos);
+    supabase.removeChannel(unsubScreens);
+    if (lastSeenInterval) { clearInterval(lastSeenInterval); lastSeenInterval = null; }
+  };
 }

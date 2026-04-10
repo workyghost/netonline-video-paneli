@@ -145,6 +145,12 @@ export function timeAgo(timestamp) {
 
 export const isImage = fn => /\.(jpg|jpeg|png)$/i.test(fn || "");
 
+export function isScreenOnline(screen) {
+  if (!screen.last_seen) return false;
+  const TWO_MIN = 2 * 60 * 1000;
+  return (Date.now() - new Date(screen.last_seen).getTime()) < TWO_MIN;
+}
+
 export function formatDate(ts) {
   if (!ts) return "Sınırsız";
   try {

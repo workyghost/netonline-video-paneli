@@ -12,7 +12,10 @@ export function initPlaylists() {
         + Yeni Playlist
       </button>
     </div>
-    <div id="playlists-empty" class="hidden text-center py-16 text-gray-600"><p class="text-sm">Henüz playlist yok.</p></div>
+    <div id="playlists-empty" class="hidden text-center py-16 text-gray-600">
+      <p class="text-sm mb-1">Henüz playlist yok.</p>
+      <p class="text-xs text-gray-700">Önce İçerikler sekmesinden video yükleyin, sonra playlist oluşturun.</p>
+    </div>
     <div id="playlists-table-wrap" class="hidden bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
       <table class="w-full text-sm">
         <thead><tr class="border-b border-gray-800">
@@ -130,6 +133,7 @@ export function initPlaylists() {
         .map(i => ({ videoId: i.videoId, durationOverride: i.durationOverride || null }));
 
       let videosForFirm = [];
+      let dragSrcIdx = null;
 
       async function loadVideosForFirm(firmId) {
         try {
@@ -176,8 +180,10 @@ export function initPlaylists() {
           const v = videosForFirm.find(x => x.id === item.videoId);
           const title = v?.title || item.videoId;
           const row = document.createElement("div");
-          row.className = "flex items-center gap-2 bg-gray-800 border border-gray-700 rounded px-3 py-2";
+          row.className = "flex items-center gap-2 bg-gray-800 border border-gray-700 rounded px-3 py-2 cursor-grab";
+          row.draggable = true;
           row.innerHTML = `
+            <span class="text-gray-600 select-none mr-0.5" title="Sürükle">⠿</span>
             <span class="text-xs text-gray-500 w-4">${idx + 1}</span>
             <span class="flex-1 text-sm text-gray-200 truncate">${esc(title)}</span>
             <input type="number" min="1" max="3600" placeholder="30"
@@ -191,6 +197,31 @@ export function initPlaylists() {
               <button class="btn-rm w-6 h-6 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs flex items-center justify-center" data-idx="${idx}">✕</button>
             </div>
           `;
+
+          // Drag & Drop
+          row.addEventListener("dragstart", () => {
+            dragSrcIdx = idx;
+            setTimeout(() => row.classList.add("opacity-40"), 0);
+          });
+          row.addEventListener("dragend", () => {
+            row.classList.remove("opacity-40");
+            container.querySelectorAll("div").forEach(el => { el.style.borderColor = ""; });
+          });
+          row.addEventListener("dragover", e => {
+            e.preventDefault();
+            row.style.borderColor = "#3b82f6";
+          });
+          row.addEventListener("dragleave", () => { row.style.borderColor = ""; });
+          row.addEventListener("drop", e => {
+            e.preventDefault();
+            row.style.borderColor = "";
+            if (dragSrcIdx === null || dragSrcIdx === idx) return;
+            const [moved] = orderedItems.splice(dragSrcIdx, 1);
+            orderedItems.splice(idx, 0, moved);
+            dragSrcIdx = null;
+            renderVideoCheckboxes();
+            renderOrderList();
+          });
           // Süre input değişince orderedItems'ı güncelle (sıralama bozulmasın diye)
           row.querySelector("input[type=number]").addEventListener("change", e => {
             const val = parseInt(e.target.value, 10);

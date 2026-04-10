@@ -6,6 +6,38 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [3.1.0] — 2026-04-10
+
+### Ekran Yönetimi & Operasyonel Kalite
+
+#### 8A: isScreenOnline Helper
+- `shared.js`'e `isScreenOnline(screen)` helper export edildi — 2 dakika eşiği tek noktada tanımlı
+- `overview.js` ve `screens.js`'deki inline `(Date.now() - lastMs) < TWO_MIN` hesaplamaları bu helper'la değiştirildi
+
+#### 8B: Son Görülme Canlı Sayaç
+- "Son Görülme" hücreleri `data-timestamp` attribute'u ile işaretlendi
+- Her 30 saniyede bir `querySelectorAll("[data-timestamp]")` ile hücreler `timeAgo()` fonksiyonuyla yeniden hesaplanır
+- `unsubscribers.overview` ve `unsubscribers.screens` cleanup'larında `clearInterval` çağrılır
+- `screens.js` tablosuna "Son Görülme" sütunu eklendi
+
+#### 8C: Playlist Drag & Drop Sıralama
+- `playlists.js` sıra listesi satırlarına `draggable="true"` eklendi
+- `dragstart/dragover/dragleave/drop/dragend` event'leri ile sürükle-bırak sıralama çalışır
+- Sürükleme sırasında element `opacity-40` ile soluklaşır, hedef mavi border alır
+- Mevcut ↑↓ butonları korunur (mobil için)
+
+#### 8D: Video Düzenleme Modal'ı
+- `contents.js` video listesine "Düzenle" butonu eklendi (Sil butonunun yanına)
+- Edit modal: Başlık, Firma, Başlangıç Tarihi, Bitiş Tarihi, Aktif/Pasif toggle
+- `supabase.from("videos").update({...})` ile kayıt güncellenir, ardından liste yenilenir
+
+#### 8E: Boş Durum Mesajları
+- Ekranlar sayfası: boşken `screens-empty` div gösterilir — "Yeni ekran ekleyerek başlayın veya TV'de player.html'i açarak otomatik kayıt yapın"
+- Playlist sayfası: "Önce İçerikler sekmesinden video yükleyin, sonra playlist oluşturun" açıklayıcı mesajı eklendi
+- Ekranlar tablosu `screens-table-wrap` ile sarmalandı, boşken gizlenir
+
+---
+
 ## [3.0.0] — 2026-04-10
 
 ### Müşteriye Hazır Temel — Yeni Özellikler

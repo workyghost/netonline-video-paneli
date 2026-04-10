@@ -5,7 +5,7 @@
 TV ekranlarında merkezi video yönetimi sağlayan **Digital Signage** sistemi.
 Çok müşterili ajans modeli: firmalar dashboard üzerinden dinamik olarak yönetilir.
 
-**Mevcut sürüm:** v3.0.0 (kararlı, prodüksiyona hazır, lokal mock-server ile test edilebilir)
+**Mevcut sürüm:** v3.1.0 (kararlı, prodüksiyona hazır, lokal mock-server ile test edilebilir)
 
 ---
 
@@ -268,4 +268,4 @@ scp -r ./* user@server:/var/www/netonline-video-paneli/
 
 `docs/CHANGELOG.md` **her kod değişikliğinde güncellenmelidir.**
 Sürümleme: `MAJOR.MINOR.PATCH` (Anlamsal Sürümleme)
-**Mevcut sürüm: v3.0.0**
+**Mevcut sürüm: v3.1.0**

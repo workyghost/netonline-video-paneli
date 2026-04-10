@@ -1,6 +1,6 @@
 # NetOnline Digital Signage
 
-**v3.0.0** · TV ekranlarında merkezi video yönetimi · Çok müşterili ajans modeli
+**v3.1.0** · TV ekranlarında merkezi video yönetimi · Çok müşterili ajans modeli
 
 ---
 
@@ -182,4 +182,4 @@ Detaylı değişiklik günlüğü: [`docs/CHANGELOG.md`](docs/CHANGELOG.md)
 
 ---
 
-*NetOnline Ekibi · v3.0.0*
+*NetOnline Ekibi · v3.1.0*

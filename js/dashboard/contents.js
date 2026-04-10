@@ -132,7 +132,9 @@ export function initContents() {
             <span class="absolute top-0.5 ${v.is_active ? "right-0.5" : "left-0.5"} w-4 h-4 bg-white rounded-full transition-all"></span>
           </div>
         </td>
-        <td class="px-4 py-3">
+        <td class="px-4 py-3 flex gap-2">
+          <button class="btn-edit-video px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+            data-id="${esc(v.id)}">Düzenle</button>
           <button class="btn-delete-video px-3 py-1 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded transition-colors"
             data-id="${esc(v.id)}" data-filename="${esc(v.file_name || "")}">Sil</button>
         </td>
@@ -165,6 +167,13 @@ export function initContents() {
           dot.classList.toggle("right-0.5", !newActive);
           dot.classList.toggle("left-0.5", newActive);
         }
+      });
+    });
+
+    tbody.querySelectorAll(".btn-edit-video").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const video = allVideos.find(v => v.id === btn.dataset.id);
+        if (video) openEditVideoModal(video, loadVideos);
       });
     });
 
@@ -245,6 +254,105 @@ export function initContents() {
 
   unsubscribers.contents = null;
   loadVideos();
+}
+
+function openEditVideoModal(video, onComplete) {
+  openModal(box => {
+    const toDateInput = ts => ts ? new Date(ts).toISOString().slice(0, 10) : "";
+
+    let firmOpts = '<option value="">Firma seçin...</option>';
+    firmsMap.forEach((name, id) => {
+      firmOpts += `<option value="${esc(id)}" ${video.firm_id === id ? "selected" : ""}>${esc(name)}</option>`;
+    });
+
+    box.innerHTML = `
+      <h3 class="text-base font-semibold text-white mb-4">Video Düzenle</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Video Başlığı</label>
+          <input id="ev-title" type="text" maxlength="200" value="${esc(video.title)}"
+            class="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Firma</label>
+          <select id="ev-firm" class="w-full bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2">
+            ${firmOpts}
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Başlangıç Tarihi</label>
+            <input type="date" id="ev-starts-at" value="${toDateInput(video.starts_at)}"
+              class="w-full bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Bitiş Tarihi</label>
+            <input type="date" id="ev-expires-at" value="${toDateInput(video.expires_at)}"
+              class="w-full bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2">
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-gray-400">Aktif</span>
+          <div id="ev-active-toggle" class="w-10 h-5 rounded-full cursor-pointer transition-colors relative ${video.is_active ? "bg-blue-600" : "bg-gray-700"}"
+            data-active="${video.is_active}">
+            <span class="absolute top-0.5 ${video.is_active ? "right-0.5" : "left-0.5"} w-4 h-4 bg-white rounded-full transition-all"></span>
+          </div>
+        </div>
+        <div id="ev-error" class="hidden text-xs text-red-400 bg-red-400/10 rounded p-2"></div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button id="ev-cancel" class="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 rounded-lg">İptal</button>
+          <button id="ev-save" class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg">Kaydet</button>
+        </div>
+      </div>
+    `;
+
+    box.querySelector("#ev-cancel").addEventListener("click", closeModal);
+
+    const toggle = box.querySelector("#ev-active-toggle");
+    toggle.addEventListener("click", () => {
+      const cur = toggle.dataset.active === "true";
+      toggle.dataset.active = String(!cur);
+      toggle.classList.toggle("bg-blue-600", !cur);
+      toggle.classList.toggle("bg-gray-700", cur);
+      const dot = toggle.querySelector("span");
+      dot.classList.toggle("right-0.5", !cur);
+      dot.classList.toggle("left-0.5", cur);
+    });
+
+    box.querySelector("#ev-save").addEventListener("click", async () => {
+      const title     = box.querySelector("#ev-title").value.trim();
+      const firmId    = box.querySelector("#ev-firm").value;
+      const startsAt  = box.querySelector("#ev-starts-at").value;
+      const expiresAt = box.querySelector("#ev-expires-at").value;
+      const isActive  = box.querySelector("#ev-active-toggle").dataset.active === "true";
+      const errEl     = box.querySelector("#ev-error");
+
+      if (!title) { errEl.textContent = "Başlık girin."; errEl.classList.remove("hidden"); return; }
+      errEl.classList.add("hidden");
+
+      const btn = box.querySelector("#ev-save");
+      btn.disabled = true; btn.textContent = "Kaydediliyor...";
+
+      try {
+        const { error } = await supabase.from("videos").update({
+          title,
+          firm_id:    firmId || null,
+          starts_at:  startsAt  ? new Date(startsAt).toISOString()  : null,
+          expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+          is_active:  isActive,
+          updated_at: new Date().toISOString()
+        }).eq("id", video.id);
+        if (error) throw error;
+        closeModal();
+        showToast("Video güncellendi");
+        await onComplete();
+      } catch (e) {
+        errEl.textContent = e.message;
+        errEl.classList.remove("hidden");
+        btn.disabled = false; btn.textContent = "Kaydet";
+      }
+    });
+  });
 }
 
 function openUploadModal(onComplete) {
