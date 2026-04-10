@@ -6,6 +6,37 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [3.2.0] — 2026-04-10
+
+### İçerik Zamanlama & Raporlama
+
+#### 9A+9B: Haftalık Rapor Sayfası
+- Dashboard'a 6. sekme eklendi: **Raporlar** (bar-chart ikonu, playlists ile settings arasında)
+- `js/dashboard/reports.js` modülü oluşturuldu; `shared.js` routing'e eklendi
+- Tarih aralığı + firma filtresi ile `play_logs` tablosundan veri çekilir
+- **Özet kartlar**: Toplam oynatma, toplam yayın süresi (s dk), aktif ekran sayısı, ort. günlük oynatma
+- **Video bazlı tablo**: Oynatma sayısına göre sıralı — oynatma, toplam süre, ort. süre
+- **Ekran bazlı tablo**: Firma + oynatma sayısı + toplam süre
+- Veri yoksa: "Seçilen tarih aralığında oynatma kaydı bulunamadı."
+
+#### 9C: Günlük Zamanlama (Gün + Saat Bazlı)
+- `js/player.js`'e `isVideoScheduledNow(video)` fonksiyonu eklendi:
+  - `schedule_days` kontrolü (1=Pzt...7=Pazar, null = her gün)
+  - `schedule_time_start` / `schedule_time_end` kontrolü ("HH:MM" formatı, null = tüm gün)
+  - Mevcut `starts_at` / `expires_at` tarih kontrollerini de kapsar
+- `fetchFirmVideos` ve `fetchPlaylistVideos` filtresi `isVideoScheduledNow` ile değiştirildi
+- **Upload modal**: Yayın Günleri (7 checkbox, hepsi varsayılan seçili) + Yayın Saatleri (iki time input)
+- **Video Düzenleme modal**: Aynı zamanlama alanları, mevcut değerler ile pre-fill
+
+#### 9D: SQL Migration
+- `sql/migration-v3.2.sql` eklendi: `schedule_days`, `schedule_time_start`, `schedule_time_end` kolonları (idempotent)
+- CLAUDE.md veritabanı şeması güncellendi
+
+#### 9E: Mock Server
+- Mevcut `...req.body` spread mekanizması yeni alanları otomatik kabul eder — ek değişiklik gerekmedi
+
+---
+
 ## [3.1.0] — 2026-04-10
 
 ### Ekran Yönetimi & Operasyonel Kalite

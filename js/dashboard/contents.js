@@ -291,6 +291,25 @@ function openEditVideoModal(video, onComplete) {
               class="w-full bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2">
           </div>
         </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-2">Yayın Günleri <span class="text-gray-600">(varsayılan: her gün)</span></label>
+          <div class="flex flex-wrap gap-x-3 gap-y-1">
+            ${[["Pzt",1],["Sal",2],["Çar",3],["Per",4],["Cum",5],["Cmt",6],["Paz",7]].map(([lbl, val]) => {
+              const checked = !video.schedule_days || video.schedule_days.includes(val);
+              return `<label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" class="ev-schedule-day accent-blue-500" value="${val}" ${checked ? "checked" : ""}><span class="text-xs text-gray-300">${lbl}</span></label>`;
+            }).join("")}
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Yayın Başlangıç Saati <span class="text-gray-600">(opsiyonel)</span></label>
+            <input type="time" id="ev-time-start" value="${video.schedule_time_start || ""}" class="w-full bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Yayın Bitiş Saati <span class="text-gray-600">(opsiyonel)</span></label>
+            <input type="time" id="ev-time-end" value="${video.schedule_time_end || ""}" class="w-full bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2">
+          </div>
+        </div>
         <div class="flex items-center gap-3">
           <span class="text-xs text-gray-400">Aktif</span>
           <div id="ev-active-toggle" class="w-10 h-5 rounded-full cursor-pointer transition-colors relative ${video.is_active ? "bg-blue-600" : "bg-gray-700"}"
@@ -325,7 +344,11 @@ function openEditVideoModal(video, onComplete) {
       const startsAt  = box.querySelector("#ev-starts-at").value;
       const expiresAt = box.querySelector("#ev-expires-at").value;
       const isActive  = box.querySelector("#ev-active-toggle").dataset.active === "true";
-      const errEl     = box.querySelector("#ev-error");
+      const evDays    = [...box.querySelectorAll(".ev-schedule-day:checked")].map(cb => parseInt(cb.value, 10));
+      const schedDays      = evDays.length === 7 ? null : (evDays.length > 0 ? evDays : null);
+      const schedTimeStart = box.querySelector("#ev-time-start").value || null;
+      const schedTimeEnd   = box.querySelector("#ev-time-end").value   || null;
+      const errEl          = box.querySelector("#ev-error");
 
       if (!title) { errEl.textContent = "Başlık girin."; errEl.classList.remove("hidden"); return; }
       errEl.classList.add("hidden");
@@ -336,11 +359,14 @@ function openEditVideoModal(video, onComplete) {
       try {
         const { error } = await supabase.from("videos").update({
           title,
-          firm_id:    firmId || null,
-          starts_at:  startsAt  ? new Date(startsAt).toISOString()  : null,
-          expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
-          is_active:  isActive,
-          updated_at: new Date().toISOString()
+          firm_id:             firmId || null,
+          starts_at:           startsAt  ? new Date(startsAt).toISOString()  : null,
+          expires_at:          expiresAt ? new Date(expiresAt).toISOString() : null,
+          is_active:           isActive,
+          schedule_days:       schedDays,
+          schedule_time_start: schedTimeStart,
+          schedule_time_end:   schedTimeEnd,
+          updated_at:          new Date().toISOString()
         }).eq("id", video.id);
         if (error) throw error;
         closeModal();
@@ -395,6 +421,24 @@ function openUploadModal(onComplete) {
           <div>
             <label class="block text-xs text-gray-400 mb-1">Bitiş Tarihi <span class="text-gray-600">(opsiyonel)</span></label>
             <input type="date" id="upload-expiry" class="w-full bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-2">Yayın Günleri <span class="text-gray-600">(varsayılan: her gün)</span></label>
+          <div class="flex flex-wrap gap-x-3 gap-y-1">
+            ${[["Pzt",1],["Sal",2],["Çar",3],["Per",4],["Cum",5],["Cmt",6],["Paz",7]].map(([lbl, val]) =>
+              `<label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" class="upload-schedule-day accent-blue-500" value="${val}" checked><span class="text-xs text-gray-300">${lbl}</span></label>`
+            ).join("")}
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Yayın Başlangıç Saati <span class="text-gray-600">(opsiyonel)</span></label>
+            <input type="time" id="upload-time-start" class="w-full bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Yayın Bitiş Saati <span class="text-gray-600">(opsiyonel)</span></label>
+            <input type="time" id="upload-time-end" class="w-full bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2">
           </div>
         </div>
         <div id="upload-progress-wrap" class="hidden">
@@ -473,6 +517,10 @@ function openUploadModal(onComplete) {
       const firmId   = box.querySelector("#upload-firm").value;
       const startsAt = box.querySelector("#upload-starts-at").value;
       const expiry   = box.querySelector("#upload-expiry").value;
+      const checkedDays = [...box.querySelectorAll(".upload-schedule-day:checked")].map(cb => parseInt(cb.value, 10));
+      const schedDays      = checkedDays.length === 7 ? null : (checkedDays.length > 0 ? checkedDays : null);
+      const schedTimeStart = box.querySelector("#upload-time-start").value || null;
+      const schedTimeEnd   = box.querySelector("#upload-time-end").value   || null;
       if (selectedFiles.length === 1 && !box.querySelector("#upload-title").value.trim()) {
         showToast("Başlık girin", "error"); return;
       }
@@ -496,7 +544,7 @@ function openUploadModal(onComplete) {
           box.querySelector("#upload-progress-bar").style.width = "0%";
           box.querySelector("#upload-progress-pct").textContent = "0%";
           try {
-            await uploadSingleVideo(file, title, firmId, startsAt, expiry, box);
+            await uploadSingleVideo(file, title, firmId, startsAt, expiry, box, schedDays, schedTimeStart, schedTimeEnd);
             successCount++;
           } catch (e) {
             showToast(`"${file.name}" yüklenemedi: ${e.message}`, "error");
@@ -512,7 +560,7 @@ function openUploadModal(onComplete) {
   });
 }
 
-function uploadSingleVideo(file, title, firmId, startsAt, expiry, box) {
+function uploadSingleVideo(file, title, firmId, startsAt, expiry, box, schedDays = null, schedTimeStart = null, schedTimeEnd = null) {
   return new Promise(async (resolve, reject) => {
     const fileName = Date.now() + "_" + file.name.replace(/[^a-zA-Z0-9.\-_]/g, "");
     const bar     = box.querySelector("#upload-progress-bar");
@@ -555,6 +603,9 @@ function uploadSingleVideo(file, title, firmId, startsAt, expiry, box) {
           thumbnail_url: thumbnailUrl, is_active: true,
           starts_at:  startsAt ? new Date(startsAt).toISOString()  : null,
           expires_at: expiry   ? new Date(expiry).toISOString()    : null,
+          schedule_days:       schedDays,
+          schedule_time_start: schedTimeStart,
+          schedule_time_end:   schedTimeEnd,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }]);

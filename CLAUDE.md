@@ -5,7 +5,7 @@
 TV ekranlarında merkezi video yönetimi sağlayan **Digital Signage** sistemi.
 Çok müşterili ajans modeli: firmalar dashboard üzerinden dinamik olarak yönetilir.
 
-**Mevcut sürüm:** v3.1.0 (kararlı, prodüksiyona hazır, lokal mock-server ile test edilebilir)
+**Mevcut sürüm:** v3.2.0 (kararlı, prodüksiyona hazır, lokal mock-server ile test edilebilir)
 
 ---
 
@@ -170,6 +170,9 @@ videos
   is_active: boolean
   starts_at:  timestamptz (nullable — yayın başlangıç zamanı; null = hemen)
   expires_at: timestamptz (nullable — kalıcı bitiş tarihi; starts_at ile karıştırma)
+  schedule_days:       jsonb (nullable — [1..7], 1=Pzt...7=Paz; null = her gün)
+  schedule_time_start: text  (nullable — "HH:MM" formatı; null = tüm gün)
+  schedule_time_end:   text  (nullable — "HH:MM" formatı; null = tüm gün)
   created_at: timestamptz
   updated_at: timestamptz
 
@@ -268,4 +271,4 @@ scp -r ./* user@server:/var/www/netonline-video-paneli/
 
 `docs/CHANGELOG.md` **her kod değişikliğinde güncellenmelidir.**
 Sürümleme: `MAJOR.MINOR.PATCH` (Anlamsal Sürümleme)
-**Mevcut sürüm: v3.1.0**
+**Mevcut sürüm: v3.2.0**

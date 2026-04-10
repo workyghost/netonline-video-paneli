@@ -5,6 +5,7 @@ import { initOverview }  from "./overview.js";
 import { initScreens }   from "./screens.js";
 import { initContents }  from "./contents.js";
 import { initPlaylists } from "./playlists.js";
+import { initReports }   from "./reports.js";
 import { initSettings }  from "./settings.js";
 
 // ========== PAYLAŞILAN STATE ==========
@@ -65,6 +66,7 @@ export function showPage(pageId) {
     screens:   initScreens,
     contents:  initContents,
     playlists: initPlaylists,
+    reports:   initReports,
     settings:  initSettings
   };
   inits[pageId]?.();

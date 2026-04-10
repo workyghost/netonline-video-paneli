@@ -50,6 +50,22 @@ let currentPlayLogStartedAt = null;
 const isImage = fn => /\.(jpg|jpeg|png)$/i.test(fn || "");
 let controlBarTimeout  = null;
 
+// ========== ZAMANLAMA FİLTRESİ ==========
+function isVideoScheduledNow(video) {
+  const now = new Date();
+  if (video.starts_at  && new Date(video.starts_at)  > now) return false;
+  if (video.expires_at && new Date(video.expires_at) < now) return false;
+  if (video.schedule_days) {
+    const dayOfWeek = now.getDay() || 7; // JS: 0=Pazar → 7=Pazar
+    if (!video.schedule_days.includes(dayOfWeek)) return false;
+  }
+  if (video.schedule_time_start && video.schedule_time_end) {
+    const hhmm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    if (hhmm < video.schedule_time_start || hhmm > video.schedule_time_end) return false;
+  }
+  return video.is_active;
+}
+
 // ========== SETUP HELPERS ==========
 function showSetupError(msg) {
   setupError.textContent = msg;
@@ -166,12 +182,7 @@ function startFirmMode(firmId) {
       .eq("firm_id", firmId)
       .eq("is_active", true);
     if (!error) {
-      const now = new Date();
-      const validVideos = (videos || []).filter(v => {
-        if (v.starts_at  && new Date(v.starts_at)  > now) return false;
-        if (v.expires_at && new Date(v.expires_at) < now) return false;
-        return true;
-      });
+      const validVideos = (videos || []).filter(isVideoScheduledNow);
       updateVideoQueue(validVideos);
     }
   };
@@ -201,15 +212,12 @@ function startPlaylistMode(playlistId) {
     const { data: fetchedVideos, error: videosError } = await supabase.from("videos").select("*").in("id", ids).eq("is_active", true);
     if (videosError) { console.debug("fetchPlaylistVideos hata:", videosError); return; }
     const videosById = new Map((fetchedVideos || []).map(v => [v.id, v]));
-    const now = new Date();
 
     // Playlist sırasını koru, zamanlama filtresi uygula, metadata ekle
     const orderedVideos = sortedItems
       .map(item => {
         const v = videosById.get(item.videoId);
-        if (!v) return null;
-        if (v.starts_at  && new Date(v.starts_at)  > now) return null;
-        if (v.expires_at && new Date(v.expires_at) < now) return null;
+        if (!v || !isVideoScheduledNow(v)) return null;
         return { ...v, _playlistItem: item };
       })
       .filter(Boolean);
