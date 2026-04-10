@@ -106,18 +106,20 @@ export function initContents() {
       tr.className = "border-b border-gray-800/50 hover:bg-gray-800/20";
 
       const tdThumb = document.createElement("td");
-      tdThumb.className = "px-4 py-3";
+      tdThumb.className = "px-4 py-3 cursor-pointer";
+      tdThumb.title = "Önizleme için tıklayın";
       if (v.thumbnail_url) {
         const img = document.createElement("img");
         img.src = v.thumbnail_url; img.alt = v.title;
-        img.className = "w-16 h-10 object-cover rounded";
+        img.className = "w-16 h-10 object-cover rounded hover:opacity-80 transition-opacity";
         tdThumb.appendChild(img);
       } else {
-        tdThumb.innerHTML = `<div class="w-16 h-10 bg-gray-800 rounded flex items-center justify-center">
+        tdThumb.innerHTML = `<div class="w-16 h-10 bg-gray-800 rounded flex items-center justify-center hover:bg-gray-700 transition-colors">
           <svg class="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
           </svg></div>`;
       }
+      tdThumb.addEventListener("click", () => openPreviewModal(v));
 
       tr.innerHTML = `
         <td class="px-4 py-3 text-gray-200 font-medium">${esc(v.title)}</td>
@@ -472,6 +474,38 @@ function uploadSingleVideo(file, title, firmId, startsAt, expiry, box) {
     xhr.timeout = 10 * 60 * 1000;
 
     xhr.send(file);
+  });
+}
+
+function openPreviewModal(v) {
+  openModal(box => {
+    const isImg = isImage(v.file_name || "");
+    const firmName = firmsMap.get(v.firm_id) || "—";
+
+    let mediaHtml;
+    if (isImg) {
+      mediaHtml = `<img src="${esc(v.file_url || v.thumbnail_url || "")}" alt="${esc(v.title)}" class="w-full max-h-[60vh] object-contain rounded-lg bg-black">`;
+    } else {
+      mediaHtml = `<video src="${esc(v.file_url || "")}" controls autoplay class="w-full max-h-[60vh] rounded-lg bg-black" playsinline></video>`;
+    }
+
+    box.innerHTML = `
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-semibold text-white truncate pr-2">${esc(v.title)}</h3>
+        <button id="preview-close-btn" class="flex-shrink-0 text-gray-500 hover:text-white transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="mb-4">${mediaHtml}</div>
+      <div class="text-xs text-gray-400 space-y-1 border-t border-gray-800 pt-3">
+        <div><span class="text-gray-500">Firma:</span> ${esc(firmName)}</div>
+        <div><span class="text-gray-500">Yükleme Tarihi:</span> ${formatDate(v.created_at)}</div>
+      </div>
+    `;
+
+    box.querySelector("#preview-close-btn").addEventListener("click", closeModal);
   });
 }
 

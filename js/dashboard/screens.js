@@ -1,7 +1,7 @@
 // js/dashboard/screens.js — Ekranlar sayfası ve modal'ları
 
 import { supabase } from "../supabase-config.js";
-import { esc, firmsMap, unsubscribers, showToast, openModal, closeModal, firmsOptions } from "./shared.js";
+import { esc, timeAgo, firmsMap, unsubscribers, showToast, openModal, closeModal, firmsOptions } from "./shared.js";
 
 export function initScreens() {
   let generation = 0;
@@ -60,7 +60,7 @@ export function initScreens() {
       const tr = document.createElement("tr");
       tr.className = "border-b border-gray-800/50 hover:bg-gray-800/20";
       tr.innerHTML = `
-        <td class="px-4 py-3 text-gray-200 font-medium">${esc(s.name)}</td>
+        <td class="px-4 py-3"><button class="btn-screen-detail text-gray-200 font-medium hover:text-blue-400 transition-colors text-left" data-id="${esc(s.id)}">${esc(s.name)}</button></td>
         <td class="px-4 py-3 text-gray-400">${esc(firmsMap.get(s.firm_id) || "—")}</td>
         <td class="px-4 py-3 text-gray-400 text-xs">${esc(s.location || "—")}</td>
         <td class="px-4 py-3">
@@ -100,6 +100,10 @@ export function initScreens() {
         if (error) showToast("Güncellenemedi: " + error.message, "error");
         else showToast("Playlist güncellendi", "success");
       });
+    });
+
+    tbody.querySelectorAll(".btn-screen-detail").forEach(btn => {
+      btn.addEventListener("click", () => openScreenDetailModal(btn.dataset.id, screens || []));
     });
 
     tbody.querySelectorAll(".btn-edit-screen").forEach(btn => {
@@ -203,6 +207,82 @@ export function openAddScreenModal(onSuccess) {
         btn.disabled = false; btn.textContent = "Kaydet";
       }
     });
+  });
+}
+
+async function openScreenDetailModal(screenId, screens) {
+  const s = screens.find(sc => sc.id === screenId);
+  if (!s) return;
+
+  const isOnline = s.last_seen && (Date.now() - new Date(s.last_seen).getTime()) < 2 * 60 * 1000;
+  const firmName = firmsMap.get(s.firm_id) || "—";
+
+  openModal(box => {
+    box.innerHTML = `
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-semibold text-white truncate pr-2">${esc(s.name)}</h3>
+        <button id="screen-detail-close" class="flex-shrink-0 text-gray-500 hover:text-white transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-xs mb-4 pb-4 border-b border-gray-800">
+        <div><span class="text-gray-500">Firma:</span> <span class="text-gray-300">${esc(firmName)}</span></div>
+        <div><span class="text-gray-500">Konum:</span> <span class="text-gray-300">${esc(s.location || "—")}</span></div>
+        <div><span class="text-gray-500">Durum:</span>
+          <span class="${isOnline ? "text-green-400" : "text-red-400"}">${isOnline ? "Çevrimiçi" : "Çevrimdışı"}</span>
+        </div>
+        <div><span class="text-gray-500">Son Görülme:</span> <span class="text-gray-300">${timeAgo(s.last_seen)}</span></div>
+      </div>
+      <h4 class="text-xs font-medium text-gray-400 mb-2">Son Oynatmalar</h4>
+      <div id="screen-logs-container" class="text-xs text-gray-500 text-center py-4">Yükleniyor...</div>
+    `;
+
+    box.querySelector("#screen-detail-close").addEventListener("click", closeModal);
+
+    supabase.from("play_logs")
+      .select("*")
+      .eq("screen_id", screenId)
+      .order("started_at", { ascending: false })
+      .limit(20)
+      .then(({ data: logs, error }) => {
+        const container = box.querySelector("#screen-logs-container");
+        if (!container) return;
+
+        if (error || !logs || logs.length === 0) {
+          container.textContent = "Henüz oynatma kaydı yok.";
+          return;
+        }
+
+        container.innerHTML = `
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead><tr class="border-b border-gray-800">
+                <th class="text-left py-1 pr-3 text-gray-500 font-medium">Video</th>
+                <th class="text-left py-1 pr-3 text-gray-500 font-medium">Başlangıç</th>
+                <th class="text-left py-1 text-gray-500 font-medium">Süre</th>
+              </tr></thead>
+              <tbody>
+                ${logs.map(log => {
+                  const dur = log.duration_seconds;
+                  const durStr = dur != null
+                    ? `${Math.floor(dur / 60)}:${String(dur % 60).padStart(2, "0")}`
+                    : "—";
+                  const startStr = log.started_at
+                    ? new Date(log.started_at).toLocaleString("tr-TR")
+                    : "—";
+                  return `<tr class="border-b border-gray-800/50">
+                    <td class="py-1.5 pr-3 text-gray-300">${esc(log.video_title || "—")}</td>
+                    <td class="py-1.5 pr-3 text-gray-500">${startStr}</td>
+                    <td class="py-1.5 text-gray-500">${durStr}</td>
+                  </tr>`;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+      });
   });
 }
 

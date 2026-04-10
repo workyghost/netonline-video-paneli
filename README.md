@@ -1,6 +1,6 @@
 # NetOnline Digital Signage
 
-**v2.4.0** · TV ekranlarında merkezi video yönetimi · Çok müşterili ajans modeli
+**v3.0.0** · TV ekranlarında merkezi video yönetimi · Çok müşterili ajans modeli
 
 ---
 
@@ -41,9 +41,8 @@ netonline-video-paneli/
 │   └── style.css               — Login ve player stilleri
 ├── js/
 │   ├── supabase-config.js      — Ortam algılama (local/prod), çift client
-│   ├── supabase-config.example.js — Kurulum referansı (.gitignore'da değil)
 │   ├── auth.js                 — Login + oturum yönlendirme
-│   ├── dashboard.js            — SPA mantığı (5 sayfa, realtime, modal)
+│   ├── dashboard/              — SPA modülleri (shared, overview, screens, contents, playlists, settings)
 │   └── player.js               — TV player (playlist/firma modu, heartbeat)
 ├── mock-server/
 │   ├── server.js               — Supabase mock (Express 5 + WebSocket)
@@ -51,8 +50,8 @@ netonline-video-paneli/
 │   ├── test-flow.js            — Uçtan uca: login → firma → video yükleme
 │   └── test-player.js          — Player + realtime testi
 ├── sql/
-│   ├── schema.sql              — PostgreSQL şema ve RLS politikaları
-│   └── seed.sql                — Geliştirme başlangıç verileri
+│   └── migration-v2.9.sql      — Supabase migration (tablolar, RLS, Realtime — idempotent)
+├── deploy.sh                   — VPS deploy scripti (credentials inject eder)
 └── docs/
     └── CHANGELOG.md            — Sürüm geçmişi
 ```
@@ -101,6 +100,21 @@ node server.js
 
 ## Kurulum — VPS Deployment (Nginx)
 
+### 1. Credentials Inject (deploy.sh)
+
+HTML dosyalarındaki placeholder değerler `deploy.sh` ile gerçek Supabase bilgileriyle doldurulur:
+
+```bash
+SUPABASE_URL="https://your-project.supabase.co" \
+SUPABASE_ANON_KEY="eyJ..." \
+./deploy.sh
+
+# Ardından dosyaları VPS'e kopyalayın:
+scp -r ./* user@server:/var/www/netonline-video-paneli/
+```
+
+### 2. Nginx Yapılandırması
+
 ```nginx
 server {
     listen 80;
@@ -125,7 +139,9 @@ server {
 }
 ```
 
-Supabase bağlantı bilgilerini `js/supabase-config.js` içine girin (`supabase-config.example.js`'i referans alın).
+### 3. Veritabanı Kurulumu
+
+`sql/migration-v2.9.sql` dosyasını Supabase SQL Editor'e yapıştırıp çalıştırın (idempotent — tekrar çalıştırılabilir).
 
 ---
 
@@ -156,7 +172,7 @@ playlists  — id, firm_id, name, items (jsonb), created_at, updated_at
 -- items formatı: [{ videoId, order, durationOverride }]
 ```
 
-Tam şema ve RLS politikaları: [`sql/schema.sql`](sql/schema.sql)
+Tam şema, RLS politikaları ve migration: [`sql/migration-v2.9.sql`](sql/migration-v2.9.sql)
 
 ---
 
@@ -166,4 +182,4 @@ Detaylı değişiklik günlüğü: [`docs/CHANGELOG.md`](docs/CHANGELOG.md)
 
 ---
 
-*NetOnline Ekibi · v2.4.0*
+*NetOnline Ekibi · v3.0.0*

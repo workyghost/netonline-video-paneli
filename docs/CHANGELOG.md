@@ -6,6 +6,56 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [3.0.0] — 2026-04-10
+
+### Müşteriye Hazır Temel — Yeni Özellikler
+
+#### 7A: Dashboard Responsive (Mobil Sidebar)
+- `dashboard.html`'e hamburger menü butonu eklendi (sadece `md:hidden`, mobilde görünür)
+- Sidebar `transform -translate-x-full md:translate-x-0 transition-transform` ile mobilde kayarak açılır
+- Overlay backdrop eklendi — sidebar açıkken tıklanınca kapanır
+- Nav butonlarına tıklanınca mobilde sidebar otomatik kapanır
+
+#### 7B: Video Önizleme Modal'ı
+- `contents.js`'te kapak (thumbnail) hücresine tıklama desteği eklendi
+- MP4 için `<video controls autoplay>`, görsel için `<img>` ile önizleme açılır
+- Modal'da video başlığı, firma adı ve yükleme tarihi gösterilir
+
+#### 7C: Ekran Detay Modal'ı
+- `screens.js`'te ekran adına tıklanınca detay modal'ı açılır
+- Modal'da ekran bilgileri (firma, konum, durum, son görülme) ve son 20 oynatma kaydı (`play_logs`) gösterilir
+- Süre formatı: dakika:saniye
+
+#### 7D: Firma Bazlı Rapor
+- `overview.js`'e firma bazlı "Son 24 Saat" özet tablosu eklendi (`play-firm-stats` div)
+- Her firma için oynatma sayısı ve toplam yayın süresi hesaplanır
+- 0 oynatması olan firmalar gösterilmez; log yoksa div gizlenir
+
+#### 7E: Mock Server Güncellemesi
+- `server.js` GET handler'ına `order=column.asc|desc` ve `limit=N` query parametresi desteği eklendi
+- Ekran detay modal'ının `play_logs` sorgusu lokalde çalışır
+
+---
+
+## [2.10.0] — 2026-04-10
+
+### Güvenlik & Deploy
+- **Hardcoded credentials kaldırıldı**: `index.html`, `dashboard.html`, `player.html` içindeki gerçek Supabase URL ve anon key değerleri `%%SUPABASE_URL%%` ve `%%SUPABASE_ANON_KEY%%` placeholder'larıyla değiştirildi. Repoya credentials commit edilmez.
+- **deploy.sh eklendi**: `SUPABASE_URL` ve `SUPABASE_ANON_KEY` ortam değişkenleriyle placeholder'ları gerçek değerlerle dolduran VPS deploy scripti.
+
+### Kod Kalitesi
+- **overview.js inline onclick temizlendi**: `renderNoFirmsBanner` içindeki `onclick="..."` niteliği kaldırılarak `id="go-to-settings"` + `addEventListener` pattern'ine çevrildi.
+
+### Veritabanı
+- **sql/ klasörü git'e alındı**: `.gitignore`'dan `sql/` satırı kaldırıldı. Migration dosyaları artık repoda izlenir.
+- **sql/migration-v2.9.sql eklendi**: Tüm tabloları, FK'ları, indeksleri, RLS politikalarını ve Realtime yayınını idempotent olarak oluşturan Supabase migration dosyası.
+
+### Dokümantasyon
+- **CLAUDE.md güncellendi**: Deploy flow, credentials sistemi ve sql/ klasörü açıklamaları eklendi.
+- **README.md güncellendi**: VPS deployment bölümüne `deploy.sh` kullanım talimatı ve veritabanı kurulum adımı eklendi.
+
+---
+
 ## [2.9.1] — 2026-04-09
 
 ### Yapılandırma

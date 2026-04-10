@@ -231,6 +231,25 @@ app.get('/rest/v1/:table', (req, res) => {
     rows = rows.map(row => Object.fromEntries(fields.map(f => [f, row[f]])));
   }
 
+  // Order: order=column.asc|desc
+  const orderParam = req.query.order;
+  if (orderParam) {
+    const [col, dir] = orderParam.split('.');
+    rows = [...rows].sort((a, b) => {
+      const av = a[col], bv = b[col];
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+      return dir === 'desc' ? -cmp : cmp;
+    });
+  }
+
+  // Limit
+  const limitParam = req.query.limit;
+  if (limitParam) {
+    rows = rows.slice(0, parseInt(limitParam, 10));
+  }
+
   // .single() veya .maybeSingle() çağrısı: tek nesne dön
   const isSingle = (req.headers['accept'] || '').includes('pgrst.object');
   if (isSingle) {

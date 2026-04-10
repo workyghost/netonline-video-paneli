@@ -5,7 +5,7 @@
 TV ekranlarında merkezi video yönetimi sağlayan **Digital Signage** sistemi.
 Çok müşterili ajans modeli: firmalar dashboard üzerinden dinamik olarak yönetilir.
 
-**Mevcut sürüm:** v2.9.1 (kararlı, prodüksiyona hazır, lokal mock-server ile test edilebilir)
+**Mevcut sürüm:** v3.0.0 (kararlı, prodüksiyona hazır, lokal mock-server ile test edilebilir)
 
 ---
 
@@ -52,9 +52,9 @@ netonline-video-paneli/
 │   ├── test-quick.js       — Hızlı: thumbnail, video sil, firma sil testi
 │   ├── test-flow.js        — Uçtan uca: login → firma → video yükleme testi
 │   └── test-player.js      — Player + realtime testi
-├── sql/
-│   ├── schema.sql          — PostgreSQL şema ve RLS kuralları
-│   └── seed.sql            — Geliştirme ilk verileri
+├── sql/                    — Git'e alınır (tracked). Migration dosyaları burada.
+│   └── migration-v2.9.sql  — Supabase SQL Editor'e yapıştırılarak çalıştırılır (idempotent)
+├── deploy.sh               — VPS deploy scripti (credentials inject eder)
 └── docs/
     ├── README.md           — Bu dosya (kurulum, deployment, mimari)
     └── CHANGELOG.md        — Sürüm geçmişi
@@ -237,8 +237,35 @@ CREATE TABLE IF NOT EXISTS play_logs (
 
 ---
 
+## Deploy Flow (VPS)
+
+### Credentials Sistemi
+- `index.html`, `dashboard.html`, `player.html` içindeki `window.__SUPABASE_URL` ve `window.__SUPABASE_ANON_KEY` değerleri artık **placeholder**'dır (`%%SUPABASE_URL%%`, `%%SUPABASE_ANON_KEY%%`).
+- Lokal geliştirmede bu değerler kullanılmaz — `supabase-config.js` localhost'u algılar ve mock-server'a yönlendirir.
+- Prodüksiyon'da `deploy.sh` bu placeholder'ları gerçek değerlerle değiştirir.
+
+### Deploy Adımları
+```bash
+# 1. Repoyu VPS'e çek veya kopyala
+git clone <repo-url> /tmp/netonline-build
+cd /tmp/netonline-build
+
+# 2. Credentials inject et ve deploy et
+SUPABASE_URL="https://..." SUPABASE_ANON_KEY="eyJ..." ./deploy.sh
+
+# 3. Dosyaları sunucuya kopyala
+scp -r ./* user@server:/var/www/netonline-video-paneli/
+```
+
+### sql/ Klasörü
+- `sql/` artık `.gitignore`'da değil — migration dosyaları repoya dahildir.
+- `sql/migration-v2.9.sql` → Supabase SQL Editor'e yapıştırılarak çalıştırılır (idempotent).
+- Yeni tablo/kolon eklendiğinde bu dosya güncellenir.
+
+---
+
 ## Changelog Zorunluluğu
 
 `docs/CHANGELOG.md` **her kod değişikliğinde güncellenmelidir.**
 Sürümleme: `MAJOR.MINOR.PATCH` (Anlamsal Sürümleme)
-**Mevcut sürüm: v2.9.1**
+**Mevcut sürüm: v3.0.0**

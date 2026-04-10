@@ -1,8 +1,3 @@
-# Video dosyaları (test/geliştirme amaçlı, repoya alınmaz)
-*.mp4
-*.avi
-*.mov
-
 # Debug & log
 *.log
 firestore-debug.log
@@ -31,16 +26,7 @@ mock-server/package-lock.json
 .DS_Store
 Thumbs.db
 
-# Geliştirme notları (FAZ prompt dosyaları)
-FAZ*.md
-
-
-# Güvenlik (Veritabanı Mimarisi)
-sql/
-
 # Supabase config (prod credentials window globals'dan gelir, bu dosya artık tracked olmamalı)
 # Not: git rm --cached js/supabase-config.js komutuyla untrack edin
 js/supabase-config.js
 
-# Gizli Kurulum Rehberi
-vps-kurulum.html
