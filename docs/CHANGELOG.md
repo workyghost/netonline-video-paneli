@@ -6,6 +6,16 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [3.3.1] — 2026-04-10
+
+### Düzeltme
+- **Placeholder sistemi kaldırıldı**: `index.html`, `dashboard.html`, `player.html` içindeki `%%SUPABASE_URL%%` / `%%SUPABASE_ANON_KEY%%` placeholder'ları gerçek credentials ile değiştirildi. Supabase anon key client-side key olduğundan RLS yeterli güvenliği sağlar — placeholder/deploy.sh yaklaşımı gereksiz karmaşıklık yaratıyordu.
+- `deploy.sh` silindi.
+- `.gitignore`'dan `js/supabase-config.js` satırı kaldırıldı.
+- `CLAUDE.md` deploy flow açıklaması güncellendi.
+
+---
+
 ## [3.3.0] — 2026-04-10
 
 ### Landing Page & Demo Hazırlığı

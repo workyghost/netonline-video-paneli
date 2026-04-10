@@ -54,7 +54,6 @@ netonline-video-paneli/
 │   └── test-player.js      — Player + realtime testi
 ├── sql/                    — Git'e alınır (tracked). Migration dosyaları burada.
 │   └── migration-v2.9.sql  — Supabase SQL Editor'e yapıştırılarak çalıştırılır (idempotent)
-├── deploy.sh               — VPS deploy scripti (credentials inject eder)
 └── docs/
     ├── README.md           — Bu dosya (kurulum, deployment, mimari)
     └── CHANGELOG.md        — Sürüm geçmişi
@@ -77,8 +76,8 @@ if (isLocal) {
   SUPABASE_URL      = window.__SUPABASE_URL;
   SUPABASE_ANON_KEY = window.__SUPABASE_ANON_KEY;
 }
-// HTML dosyalarına ekli <script> bloğu deploy sırasında doldurulur:
-// window.__SUPABASE_URL = '...'; window.__SUPABASE_ANON_KEY = '...';
+// HTML dosyalarındaki window.__SUPABASE_URL ve window.__SUPABASE_ANON_KEY doğrudan yazılır.
+// Supabase anon key client-side key'dir — RLS politikaları yeterli güvenliği sağlar.
 ```
 
 ### Supabase İkili İstemci
@@ -242,26 +241,23 @@ CREATE TABLE IF NOT EXISTS play_logs (
 
 ## Deploy Flow (VPS)
 
-### Credentials Sistemi
-- `index.html`, `dashboard.html`, `player.html` içindeki `window.__SUPABASE_URL` ve `window.__SUPABASE_ANON_KEY` değerleri artık **placeholder**'dır (`%%SUPABASE_URL%%`, `%%SUPABASE_ANON_KEY%%`).
+### Credentials
+- `window.__SUPABASE_URL` ve `window.__SUPABASE_ANON_KEY` değerleri **doğrudan HTML dosyalarına yazılır**.
+- Supabase anon key, tasarım gereği client-side'da bulunması gereken bir public key'dir. RLS politikaları veri güvenliğini sağlar — key'in görünmesi bir güvenlik açığı değildir.
 - Lokal geliştirmede bu değerler kullanılmaz — `supabase-config.js` localhost'u algılar ve mock-server'a yönlendirir.
-- Prodüksiyon'da `deploy.sh` bu placeholder'ları gerçek değerlerle değiştirir.
 
 ### Deploy Adımları
 ```bash
-# 1. Repoyu VPS'e çek veya kopyala
-git clone <repo-url> /tmp/netonline-build
-cd /tmp/netonline-build
+# 1. Repoyu VPS'e çek
+git clone <repo-url> /var/www/netonline-video-paneli
+# veya: git pull origin main
 
-# 2. Credentials inject et ve deploy et
-SUPABASE_URL="https://..." SUPABASE_ANON_KEY="eyJ..." ./deploy.sh
-
-# 3. Dosyaları sunucuya kopyala
-scp -r ./* user@server:/var/www/netonline-video-paneli/
+# 2. Dosyaları Nginx root'una kopyala (zaten yerindeyse gerek yok)
+# Credentials zaten HTML'de mevcut — ek adım gerekmez.
 ```
 
 ### sql/ Klasörü
-- `sql/` artık `.gitignore`'da değil — migration dosyaları repoya dahildir.
+- `sql/` git'e alınır — migration dosyaları repoya dahildir.
 - `sql/migration-v2.9.sql` → Supabase SQL Editor'e yapıştırılarak çalıştırılır (idempotent).
 - Yeni tablo/kolon eklendiğinde bu dosya güncellenir.
 

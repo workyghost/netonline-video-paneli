@@ -26,7 +26,4 @@ mock-server/package-lock.json
 .DS_Store
 Thumbs.db
 
-# Supabase config (prod credentials window globals'dan gelir, bu dosya artık tracked olmamalı)
-# Not: git rm --cached js/supabase-config.js komutuyla untrack edin
-js/supabase-config.js
 
