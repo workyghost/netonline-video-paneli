@@ -1,6 +1,6 @@
 # NetOnline Digital Signage
 
-**v3.2.0** · TV ekranlarında merkezi video yönetimi · Çok müşterili ajans modeli
+**v3.3.0** · TV ekranlarında merkezi video yönetimi · Çok müşterili ajans modeli
 
 ---
 
@@ -55,6 +55,32 @@ netonline-video-paneli/
 └── docs/
     └── CHANGELOG.md            — Sürüm geçmişi
 ```
+
+---
+
+## Landing Page
+
+`landing.html` — müşteriye gösterilen tanıtım sayfası:
+- Hero, 3 özellik kartı, Nasıl Çalışır (3 adım), Fiyatlandırma (3 paket), Footer
+- Koyu tema, Tailwind CDN, Inter font, responsive
+- SEO dostu: title, description, og tags
+- WhatsApp ve e-posta CTA linkleri (iletişim bilgilerini doldurun)
+
+---
+
+## Demo Ortamı
+
+Mock server ile demo verisi oluşturmak için:
+
+```bash
+cd mock-server
+node server.js
+# → http://localhost:3001
+```
+
+Dashboard'da **Ayarlar** → **Demo & Geliştirme** bölümünden:
+- **"Demo Verisi Oluştur"** — 2 firma, 2 ekran, 4 playlist otomatik oluşturur
+- **"Tüm Demo Verilerini Sil"** — Tüm tabloları temizler (dikkat: geri alınamaz)
 
 ---
 
@@ -182,4 +208,4 @@ Detaylı değişiklik günlüğü: [`docs/CHANGELOG.md`](docs/CHANGELOG.md)
 
 ---
 
-*NetOnline Ekibi · v3.2.0*
+*NetOnline Ekibi · v3.3.0*

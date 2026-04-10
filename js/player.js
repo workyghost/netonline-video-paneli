@@ -403,16 +403,14 @@ function showNoVideosMessage() {
   if (document.getElementById("noVideosMsg")) return;
   const el = document.createElement("div");
   el.id        = "noVideosMsg";
-  el.className = "absolute inset-0 z-30 flex items-center justify-center bg-black";
+  el.className = "absolute inset-0 z-30 flex flex-col items-center justify-center bg-black";
   el.innerHTML = `
-    <div class="text-center">
-      <svg class="mx-auto h-16 w-16 text-slate-700 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-          d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14
-             M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-      </svg>
-      <p class="text-slate-600 text-lg">Yayınlanacak video bulunamadı</p>
-    </div>`;
+    <div class="text-center select-none">
+      <p class="text-3xl font-bold tracking-tight text-white mb-1">NetOnline</p>
+      <p class="text-xs font-medium text-blue-400 tracking-widest uppercase mb-8">Digital Signage</p>
+      <p class="text-slate-500 text-base">Bu ekran şu an boşta</p>
+    </div>
+    <p class="absolute bottom-6 text-xs text-slate-800 select-none">Powered by NetOnline</p>`;
   playerScreen.appendChild(el);
 }
 

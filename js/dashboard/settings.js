@@ -22,7 +22,7 @@ export function initSettings() {
     </div>
 
     <!-- Şifre Değiştirme -->
-    <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6">
       <h3 class="text-sm font-semibold text-gray-300 mb-4">Şifre Değiştir</h3>
       <div class="space-y-3 max-w-sm">
         <div>
@@ -185,6 +185,78 @@ export function initSettings() {
       errEl.classList.remove("hidden");
     } finally {
       btn.disabled = false; btn.textContent = "Şifreyi Güncelle";
+    }
+  });
+
+  // ---- Demo & Geliştirme bölümü (HTML ekle) ----
+  const demoSection = document.createElement("div");
+  demoSection.className = "bg-gray-900 border border-yellow-500/20 rounded-xl p-5";
+  demoSection.innerHTML = `
+    <h3 class="text-sm font-semibold text-yellow-400/80 mb-1">Demo & Geliştirme</h3>
+    <p class="text-xs text-gray-600 mb-4">Bu bölüm yalnızca demo ve test amacıyla kullanılır.</p>
+    <div class="flex flex-wrap gap-3">
+      <button id="btn-demo-create" class="px-4 py-2 text-sm bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/20 rounded-lg transition-colors">
+        Demo Verisi Oluştur
+      </button>
+      <button id="btn-demo-delete" class="px-4 py-2 text-sm bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-colors">
+        Tüm Demo Verilerini Sil
+      </button>
+    </div>
+  `;
+  el.appendChild(demoSection);
+
+  document.getElementById("btn-demo-create").addEventListener("click", async () => {
+    const btn = document.getElementById("btn-demo-create");
+    btn.disabled = true; btn.textContent = "Oluşturuluyor...";
+    try {
+      // 2 firma
+      const { data: firms, error: fErr } = await supabase.from("firms").insert([
+        { name: "Lezzet Cafe" },
+        { name: "Stil Kuaför" }
+      ]).select();
+      if (fErr) throw fErr;
+
+      for (const firm of firms) {
+        // Her firmaya 1 ekran
+        await supabase.from("screens").insert([{
+          firm_id: firm.id, name: `${firm.name} — Ana Ekran`,
+          location: "Giriş", status: "offline",
+          last_seen: new Date().toISOString(),
+          current_video_id: null, current_video_title: null,
+          playlist_id: null, registered_at: new Date().toISOString()
+        }]);
+        // Her firmaya 2 playlist
+        await supabase.from("playlists").insert([
+          { firm_id: firm.id, name: `${firm.name} — Sabah Listesi`, items: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { firm_id: firm.id, name: `${firm.name} — Akşam Listesi`, items: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+        ]);
+      }
+      showToast("Demo verileri oluşturuldu");
+      await fetchFirms();
+    } catch (e) {
+      showToast("Demo verisi oluşturulamadı: " + e.message, "error");
+    } finally {
+      btn.disabled = false; btn.textContent = "Demo Verisi Oluştur";
+    }
+  });
+
+  document.getElementById("btn-demo-delete").addEventListener("click", async () => {
+    if (!confirm("TÜM play_logs, playlists, screens, videos ve firmalar silinecek!\nBu işlem geri alınamaz. Devam etmek istiyor musunuz?")) return;
+    const btn = document.getElementById("btn-demo-delete");
+    btn.disabled = true; btn.textContent = "Siliniyor...";
+    try {
+      // FK sırasına göre sil
+      await supabase.from("play_logs").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await supabase.from("playlists").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await supabase.from("screens").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await supabase.from("videos").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await supabase.from("firms").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      showToast("Tüm demo verileri silindi");
+      await fetchFirms();
+    } catch (e) {
+      showToast("Silme hatası: " + e.message, "error");
+    } finally {
+      btn.disabled = false; btn.textContent = "Tüm Demo Verilerini Sil";
     }
   });
 

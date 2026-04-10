@@ -6,6 +6,32 @@ Biçim: [Anlamsal Sürümleme](https://semver.org/lang/tr/) — `MAJOR.MINOR.PAT
 
 ---
 
+## [3.3.0] — 2026-04-10
+
+### Landing Page & Demo Hazırlığı
+
+#### 10A: Landing Page
+- `landing.html` oluşturuldu — bağımsız tanıtım sayfası
+- Koyu tema, Tailwind CDN, Inter font, tam responsive
+- SEO: title, description, og tags
+- Bölümler: Hero (WhatsApp + e-posta CTA), 3 özellik kartı, Nasıl Çalışır (3 adım), Fiyatlandırma (3 paket: 300₺/250₺/Özel), Footer
+- Nav bar: logo + "Demo İste" CTA butonu
+
+#### 10B: Demo Modu
+- `settings.js` Ayarlar sayfasına "Demo & Geliştirme" bölümü eklendi
+- **"Demo Verisi Oluştur"**: "Lezzet Cafe" + "Stil Kuaför" firmaları, her birine 1 ekran + 2 playlist
+- **"Tüm Demo Verilerini Sil"**: play_logs → playlists → screens → videos → firms sırasıyla temizler (confirm dialog)
+
+#### 10C: Player Branding
+- `showNoVideosMessage()`: Yeni profesyonel idle ekranı — "NetOnline / Digital Signage" text logo, "Bu ekran şu an boşta", altında "Powered by NetOnline"
+- Link overlay: "NetOnline Digital Signage" küçük metin eklendi
+
+#### 10D: Dokümantasyon
+- README.md'ye "Landing Page" ve "Demo Ortamı" bölümleri eklendi
+- CLAUDE.md ve CHANGELOG.md v3.3.0 ile güncellendi
+
+---
+
 ## [3.2.0] — 2026-04-10
 
 ### İçerik Zamanlama & Raporlama
